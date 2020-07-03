@@ -61,7 +61,7 @@ int packet_send(int sock, char* packet, int* type)
 			break;
 	}
 	header.len = packet_size;
-	int ret = write(sock, header, header.len);
+	int ret = write(sock, &header, header.len);
 	if(ret == -1)
 	{
 		perror("packet_send");
