@@ -83,29 +83,48 @@ int* server_accept(int ssock)
 	return players;
 }
 
-// 각 플레이어의 식별 번호를 패킷에 할당하는 함수
-int game_set_players(Player_packet** player_packets)
+int game_set_position(Player_packet** player_packets, Player_packet* player_packet)
 {
 	if(player_packets == NULL)
 	{
-		fprintf(stderr, "game_set_players : argument is null\n");
+		fprintf(stderr, "game_set_position : argument is null\n");
 		return -1;
 	}
 
+	short position_bit = player_packet->position;
 	for(int player_num = 0; player_num < PLAYER_CNT; player_num++)
+		player_packets[player_num]->position = position_bit;	
+
+	return 0;
+}
+
+// 각 플레이어의 식별 번호를 패킷에 할당하고 처음 위치에 배치하는 함수
+int game_init_players(Player_packet** player_packets)
+{
+	if(player_packets == NULL)
 	{
-		player_packets[player_num]->info |= player_num;
+		fprintf(stderr, "game_init_players : argument is null\n");
+		return -1;
 	}
+
+	Player_packet position_packet = {0,};
+	position_packet.position = 0x5555;
+	// 플레이어의 식별 번호를 패킷에 할당한다.
+	for(int player_num = 0; player_num < PLAYER_CNT; player_num++)
+		player_packets[player_num]->info |= player_num;
+
+	// 모든 플레이어를 x:1, y:1로 설정
+	game_set_position(player_packets, &position_packet);
 
 	return 0;
 }
 
 // 카드를 플레이어들에게 분배하는 함수
-int game_set_cards(Player_packet** player_packets, char* answer)
+int game_init_cards(Player_packet** player_packets, char* answer)
 {
 	if(player_packets == NULL || answer == NULL)
 	{
-		fprintf(stderr, "game_set_cards : argument is null\n");
+		fprintf(stderr, "game_init_cards : argument is null\n");
 		return -1;
 	}
 
@@ -177,62 +196,62 @@ int game_set_turn(Player_packet** player_packets)
 	return player_num;
 }
 
-int game_set_phase(Player_packet** player_packets)
+int game_set_phase(Player_packet** player_packets, Player_packet* player_packet)
 {
-	if(player_packets == NULL)
+	if(player_packets == NULL || player_packet == NULL)
 	{
 		fprintf(stderr, "game_set_phase");
 		return -1;
 	}
 
-	char phase_bit = 0x4;
+	char phase_bit = PLAYER_PHASE(player_packet->info);
 	for(int player_num = 0; player_num < PLAYER_CNT; player_num++)
-		player_packets[player_num]->info ^= phase_bit;
+		player_packets[player_num]->info = phase_bit;
 
 	return 0;
 }
 
-int game_set_dice(Player_packet** player_packets)
+int game_set_dice(Player_packet** player_packets, Player_packet* player_packet)
 {
-	if(player_packets == NULL)
+	if(player_packets == NULL || player_packet == NULL)
 	{
 		fprintf(stderr, "game_set_dice");
 		return -1;
 	}
 
-	char dice_bit = 0x0;
+	char dice_bit = PLAYER_DICE_VALUE(player_packet->dice);
 	for(int player_num = 0; player_num < PLAYER_CNT; player_num++)
-		player_packets[player_num]->dice &= dice_bit;
+		player_packets[player_num]->dice = dice_bit;
 
 	return 0;
 }
 
-int game_set_infer(Player_packet** player_packets)
+int game_set_infer(Player_packet** player_packets, Player_packet* player_packet)
 {
-	if(player_packets == NULL)
+	if(player_packets == NULL || player_packet == NULL)
 	{
-		fprintf(stderr, "game_set_dice");
+		fprintf(stderr, "game_set_infer");
 		return -1;
 	}
 
-	short infer_bit = 0x0;
+	short infer_bit = player_packet->infer;
 	for(int player_num = 0; player_num < PLAYER_CNT; player_num++)
-		player_packets[player_num]->infer &= infer_bit;
+		player_packets[player_num]->infer = infer_bit;
 
 	return 0;
 }
 
-int game_set_clue(Player_packet** player_packets)
+int game_set_clue(Player_packet** player_packets, Player_packet* player_packet)
 {
-	if(player_packets == NULL)
+	if(player_packets == NULL || player_packet == NULL)
 	{
-		fprintf(stderr, "game_set_dice");
+		fprintf(stderr, "game_set_clue");
 		return -1;
 	}
 
-	char clue_bit = 0x0;
+	char clue_bit = player_packet->clue;
 	for(int player_num = 0; player_num < PLAYER_CNT; player_num++)
-		player_packets[player_num]->clue &= clue_bit;
+		player_packets[player_num]->clue = clue_bit;
 
 	return 0;
 }
@@ -245,28 +264,30 @@ int game_init_player_data(Player_packet** player_packets)
 		return -1;
 	}
 
-	int ret = game_set_phase(player_packets);
+	Player_packet player_packet = {0,};
+
+	int ret = game_set_phase(player_packets, &player_packet);
 	if(ret == -1)
 	{
 		fprintf(stderr, "game_init_player_data : game_set_phase error\n");
 		return -1;
 	}
 
-	ret = game_set_dice(player_packets);
+	ret = game_set_dice(player_packets, &player_packet);
 	if(ret == -1)
 	{
 		fprintf(stderr, "game_init_player_data : game_set_dice error\n");
 		return -1;
 	}
 
-	ret = game_set_infer(player_packets);
+	ret = game_set_infer(player_packets, &player_packet);
 	if(ret == -1)
 	{
 		fprintf(stderr, "game_init_player_data : game_set_infer error\n");
 		return -1;
 	}
 
-	ret = game_set_clue(player_packets);
+	ret = game_set_clue(player_packets, &player_packet);
 	if(ret == -1)
 	{
 		fprintf(stderr, "game_init_player_data : game_set_clue error\n");
@@ -297,9 +318,9 @@ int game_next_turn(Player_packet** player_packets)
 }
 
 // 모든 플레이어에게 패킷을 보내는 함수
-int game_route(int* users, Player_packet** player_packets)
+int game_route(int* players, Player_packet** player_packets)
 {
-	if(users == NULL || player_packets == NULL)
+	if(players == NULL || player_packets == NULL)
 	{
 		fprintf(stderr, "game_route : argument is null\n");
 		return -1;
@@ -308,16 +329,15 @@ int game_route(int* users, Player_packet** player_packets)
 	for(int player_num = 0; player_num < PLAYER_CNT; player_num++)
 	{
 		// 헤더 보내야함
-		write(users[player_num], player_packets[player_num], sizeof(player_packets[player_num]));
-		// 아크 보내야함
+		write(players[player_num], player_packets[player_num], sizeof(player_packets[player_num]));
 	}	
 
 	return 0;
 }
 
-Player_packet** game_init(int* users, char* answer)
+Player_packet** game_init(int* players, char* answer)
 {
-	if(users == NULL || answer == NULL)
+	if(players == NULL || answer == NULL)
 	{
 		fprintf(stderr, "game_init : argument is null\n");
 		return NULL;
@@ -344,8 +364,10 @@ Player_packet** game_init(int* users, char* answer)
 		}
 	}
 
-	game_set_cards(player_packets, answer);
-	game_set_players(player_packets);
+	game_init_cards(player_packets, answer);
+	game_init_players(player_packets);
+
+	// route
 }
 
 char* game_set_answer()
@@ -378,11 +400,11 @@ int main()
 	Player_packet** player_packets = game_init(players, answer);
 
 	int turn_player = 0;
-/*	while(1)
+	while(1)
 	{
 		// 루프 끝
 	}
-*/
+
 	return 0;
 }
 
