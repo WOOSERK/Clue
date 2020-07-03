@@ -8,15 +8,14 @@
 #define SIG_INFR (3)
 #define SIG_DONE (4)
 #define PLAYER_ID(player_info) ((player_info) & ((char)0x3) 
-#define PLAYER_PHASE(player_info) ((player_info) & ((char)0x4)
+#define PLAYER_PHASE(player_info) ((player_info) & ((char)0x4))
 #define PLAYER_ISTURN(player_info) ((player_info) & ((char)0x8))
-#define PLAYER_POSITION(player_position, num) ((player_position) & ((short)0xf000 >> (4*num)))
+#define PLAYER_POSITION(player_position, num) ((player_position) & ((short)0xf000 >> (num >> 2)))
 #define PLAYER_SELECT_VALUE(player_select) ((player_select) & ((char)0x7))
 #define PLAYER_DICE_VALUE(player_dice) ((player_dice) & ((char)0x38))
 #define PLAYER_INFER_SCENE(player_infer) ((player_infer) & ((short)0x7c00))
 #define PLAYER_INFER_WEAPON(player_infer) ((player_infer) & ((short)0x30e0))
 #define PLAYER_INFER_CRIMINAL(player_infer) ((player_infer) & ((short)0x1f))
-#define LIMIT_TIME (1)
 
 typedef struct header
 {
