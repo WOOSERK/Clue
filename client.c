@@ -9,7 +9,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 
-#include "header.h"
+#include "clue.h"
 
 
 int client_connect(void);
