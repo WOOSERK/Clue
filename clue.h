@@ -1,22 +1,25 @@
 #include <unistd.h>
 #include <string.h>
 #include <time.h>
-#define STRING (0)
-#define STRUCTURE (1)
+#define PACKET (1)
 #define SIGNAL (2)
+#define PACKET_SIZE (sizeof(Player_packet))
+#define SIGNAL_SIZE (sizeof(int))
+#define HEADER_SIZE (sizeof(Header))
 #define SIG_TURN (1)
 #define SIG_WAIT (2)
 #define SIG_INFR (3)
 #define SIG_DONE (4)
-#define PLAYER_ID(player_info) ((player_info) & ((char)0x3)) 
-#define PLAYER_PHASE(player_info) ((player_info) & ((char)0x4))
-#define PLAYER_ISTURN(player_info) ((player_info) & ((char)0x8))
-#define PLAYER_POSITION(player_position, num) ((player_position) & ((short)0xf000 >> (num >> 2)))
-#define PLAYER_SELECT_VALUE(player_select) ((player_select) & ((char)0x7))
-#define PLAYER_DICE_VALUE(player_dice) ((player_dice) & ((char)0x38))
-#define PLAYER_INFER_SCENE(player_infer) ((player_infer) & ((short)0x7c00))
-#define PLAYER_INFER_WEAPON(player_infer) ((player_infer) & ((short)0x30e0))
-#define PLAYER_INFER_CRIMINAL(player_infer) ((player_infer) & ((short)0x1f))
+
+#define PLAYER_ID(player_info) ((player_info) & ((unsigned char)0x3)) 
+#define PLAYER_PHASE(player_info) ((player_info) & ((unsigned char)0x4))
+#define PLAYER_ISTURN(player_info) ((player_info) & ((unsigned char)0x8))
+#define PLAYER_POSITION(player_position, num) ((player_position) & ((unsigned short)0xf000 >> (num >> 2)))
+#define PLAYER_SELECT_VALUE(player_select) ((player_select) & ((unsigned char)0x7))
+#define PLAYER_DICE_VALUE(player_dice) ((player_dice) & ((unsigned char)0x38))
+#define PLAYER_INFER_SCENE(player_infer) ((player_infer) & ((unsigned short)0x7c00))
+#define PLAYER_INFER_WEAPON(player_infer) ((player_infer) & ((unsigned short)0x30e0))
+#define PLAYER_INFER_CRIMINAL(player_infer) ((player_infer) & ((unsigned short)0x1f))
 
 typedef struct header
 {
@@ -48,12 +51,8 @@ int packet_send(int sock, char* packet, int* type)
 	header.type = *type;
 	switch(*type)
 	{
-		// 문자열을 전송할 경우
-		case STRING:
-			header.len = strlen(packet);
-			break;
-			// 구조체를 전송할 경우
-		case STRUCTURE:
+		// Player_packet을 전송할 경우
+		case PACKET:
 			header.len = sizeof(Player_packet);
 			break;
 		case SIGNAL:
