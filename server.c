@@ -14,8 +14,6 @@
 #define DISTRIBUTE_CARD_CNT (16) // 분배되는 카드 개수
 #define PLAYER_CNT (4) // 플레이어는 4명
 
-// jusung
-
 
 // 서버 여는(서버 소켓 만드는) 함수
 int server_open()
@@ -423,11 +421,8 @@ int game_roll_and_go(Player_packet** player_packets, int *players)
 
 	// 버퍼를 초기화한 뒤 '(턴 플레이어)가 (주사위값)이 나와 (행동)을 했습니다.'라는 문자열을 다른 플레이어들에게 전송 
 	memset(buf, 0, BUFSIZ);
-	
-	
 
 	// 모든 플레이어에게 턴 플레이어의 주사위+선택 값을 전송
-
 
 	return 0;
 }
