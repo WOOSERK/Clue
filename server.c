@@ -198,17 +198,17 @@ int game_set_turn(Player_packet** player_packets)
 	return player_num;
 }
 
-int game_set_phase(Player_packet** player_packets, Player_packet* player_packet)
+int game_set_phase(Player_packet** player_packets)
 {
-	if(player_packets == NULL || player_packet == NULL)
+	if(player_packets == NULL)
 	{
 		fprintf(stderr, "game_set_phase");
 		return -1;
 	}
 
-	char phase_bit = PLAYER_PHASE(player_packet->info);
+	char phase_bit = 0x4;
 	for(int player_num = 0; player_num < PLAYER_CNT; player_num++)
-		player_packets[player_num]->info = phase_bit;
+		player_packets[player_num]->info ^= phase_bit;
 
 	return 0;
 }
@@ -268,7 +268,7 @@ int game_init_player_data(Player_packet** player_packets)
 
 	Player_packet player_packet = {0,};
 
-	int ret = game_set_phase(player_packets, &player_packet);
+	int ret = game_set_phase(player_packets);
 	if(ret == -1)
 	{
 		fprintf(stderr, "game_init_player_data : game_set_phase error\n");
@@ -320,7 +320,7 @@ int game_next_turn(Player_packet** player_packets)
 }
 
 // 모든 플레이어에게 각자의 플레이어 패킷을 보내는 함수
-int game_route_packets(Player_packet** player_packets, int* players)
+int game_route_packet(Player_packet** player_packets, int* players)
 {
 	if(players == NULL || player_packets == NULL)
 	{
@@ -411,18 +411,20 @@ int game_roll_and_go(Player_packet** player_packets, int *players)
 		}
 	}
 
-	// 턴 플레이어로부터 오는 주사위+선택 값을 받는다.
+	// 턴 플레이어로부터 주사위+선택값, 위치값이 변경된 패킷을 받는다.
 	int type;
 	char buf[BUFSIZ];
 	packet_recv(players[turn_player], buf, &type);
 
 	// 각 플레이어의 패킷에 반영한다.
 	game_set_dice(player_packets, (Player_packet*)buf);	
+	game_set_position(player_packets, (Player_packet*)buf);
 
-	// 버퍼를 초기화한 뒤 '(턴 플레이어)가 (주사위값)이 나와 (행동)을 했습니다.'라는 문자열을 다른 플레이어들에게 전송 
-	memset(buf, 0, BUFSIZ);
+	// 다음 단계(추리)로 변경한다.
+	game_set_phase(player_packets);
 
 	// 모든 플레이어에게 턴 플레이어의 주사위+선택 값을 전송
+	game_route_packet(player_packets, players);
 
 	return 0;
 }
