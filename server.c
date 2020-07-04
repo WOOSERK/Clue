@@ -1,4 +1,6 @@
+//wonchang
 #include <stdio.h>
+#include <string.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
@@ -83,29 +85,48 @@ int* server_accept(int ssock)
 	return players;
 }
 
-// 각 플레이어의 식별 번호를 패킷에 할당하는 함수
-int game_set_players(Player_packet** player_packets)
+int game_set_position(Player_packet** player_packets, Player_packet* player_packet)
 {
 	if(player_packets == NULL)
 	{
-		fprintf(stderr, "game_set_players : argument is null\n");
+		fprintf(stderr, "game_set_position : argument is null\n");
 		return -1;
 	}
 
+	short position_bit = player_packet->position;
 	for(int player_num = 0; player_num < PLAYER_CNT; player_num++)
+		player_packets[player_num]->position = position_bit;	
+
+	return 0;
+}
+
+// 각 플레이어의 식별 번호를 패킷에 할당하고 처음 위치에 배치하는 함수
+int game_init_players(Player_packet** player_packets)
+{
+	if(player_packets == NULL)
 	{
-		player_packets[player_num]->info |= player_num;
+		fprintf(stderr, "game_init_players : argument is null\n");
+		return -1;
 	}
+
+	Player_packet position_packet = {0,};
+	position_packet.position = 0x5555;
+	// 플레이어의 식별 번호를 패킷에 할당한다.
+	for(int player_num = 0; player_num < PLAYER_CNT; player_num++)
+		player_packets[player_num]->info |= player_num;
+
+	// 모든 플레이어를 x:1, y:1로 설정
+	game_set_position(player_packets, &position_packet);
 
 	return 0;
 }
 
 // 카드를 플레이어들에게 분배하는 함수
-int game_set_cards(Player_packet** player_packets, char* answer)
+int game_init_cards(Player_packet** player_packets, char* answer)
 {
 	if(player_packets == NULL || answer == NULL)
 	{
-		fprintf(stderr, "game_set_cards : argument is null\n");
+		fprintf(stderr, "game_init_cards : argument is null\n");
 		return -1;
 	}
 
@@ -177,62 +198,62 @@ int game_set_turn(Player_packet** player_packets)
 	return player_num;
 }
 
-int game_set_phase(Player_packet** player_packets)
+int game_set_phase(Player_packet** player_packets, Player_packet* player_packet)
 {
-	if(player_packets == NULL)
+	if(player_packets == NULL || player_packet == NULL)
 	{
 		fprintf(stderr, "game_set_phase");
 		return -1;
 	}
 
-	char phase_bit = 0x4;
+	char phase_bit = PLAYER_PHASE(player_packet->info);
 	for(int player_num = 0; player_num < PLAYER_CNT; player_num++)
-		player_packets[player_num]->info ^= phase_bit;
+		player_packets[player_num]->info = phase_bit;
 
 	return 0;
 }
 
-int game_set_dice(Player_packet** player_packets)
+int game_set_dice(Player_packet** player_packets, Player_packet* player_packet)
 {
-	if(player_packets == NULL)
+	if(player_packets == NULL || player_packet == NULL)
 	{
 		fprintf(stderr, "game_set_dice");
 		return -1;
 	}
 
-	char dice_bit = 0x0;
+	char dice_bit = PLAYER_DICE_VALUE(player_packet->dice);
 	for(int player_num = 0; player_num < PLAYER_CNT; player_num++)
-		player_packets[player_num]->dice &= dice_bit;
+		player_packets[player_num]->dice = dice_bit;
 
 	return 0;
 }
 
-int game_set_infer(Player_packet** player_packets)
+int game_set_infer(Player_packet** player_packets, Player_packet* player_packet)
 {
-	if(player_packets == NULL)
+	if(player_packets == NULL || player_packet == NULL)
 	{
-		fprintf(stderr, "game_set_dice");
+		fprintf(stderr, "game_set_infer");
 		return -1;
 	}
 
-	short infer_bit = 0x0;
+	short infer_bit = player_packet->infer;
 	for(int player_num = 0; player_num < PLAYER_CNT; player_num++)
-		player_packets[player_num]->infer &= infer_bit;
+		player_packets[player_num]->infer = infer_bit;
 
 	return 0;
 }
 
-int game_set_clue(Player_packet** player_packets)
+int game_set_clue(Player_packet** player_packets, Player_packet* player_packet)
 {
-	if(player_packets == NULL)
+	if(player_packets == NULL || player_packet == NULL)
 	{
-		fprintf(stderr, "game_set_dice");
+		fprintf(stderr, "game_set_clue");
 		return -1;
 	}
 
-	char clue_bit = 0x0;
+	char clue_bit = player_packet->clue;
 	for(int player_num = 0; player_num < PLAYER_CNT; player_num++)
-		player_packets[player_num]->clue &= clue_bit;
+		player_packets[player_num]->clue = clue_bit;
 
 	return 0;
 }
@@ -245,28 +266,30 @@ int game_init_player_data(Player_packet** player_packets)
 		return -1;
 	}
 
-	int ret = game_set_phase(player_packets);
+	Player_packet player_packet = {0,};
+
+	int ret = game_set_phase(player_packets, &player_packet);
 	if(ret == -1)
 	{
 		fprintf(stderr, "game_init_player_data : game_set_phase error\n");
 		return -1;
 	}
 
-	ret = game_set_dice(player_packets);
+	ret = game_set_dice(player_packets, &player_packet);
 	if(ret == -1)
 	{
 		fprintf(stderr, "game_init_player_data : game_set_dice error\n");
 		return -1;
 	}
 
-	ret = game_set_infer(player_packets);
+	ret = game_set_infer(player_packets, &player_packet);
 	if(ret == -1)
 	{
 		fprintf(stderr, "game_init_player_data : game_set_infer error\n");
 		return -1;
 	}
 
-	ret = game_set_clue(player_packets);
+	ret = game_set_clue(player_packets, &player_packet);
 	if(ret == -1)
 	{
 		fprintf(stderr, "game_init_player_data : game_set_clue error\n");
@@ -296,34 +319,31 @@ int game_next_turn(Player_packet** player_packets)
 	return turn_player;
 }
 
-// 모든 플레이어에게 패킷을 보내는 함수
-int game_route(int* users, Player_packet** player_packets)
+// 모든 플레이어에게 각자의 플레이어 패킷을 보내는 함수
+int game_route_packets(Player_packet** player_packets, int* players)
 {
-	if(users == NULL || player_packets == NULL)
+	if(players == NULL || player_packets == NULL)
 	{
-		fprintf(stderr, "game_route : argument is null\n");
+		fprintf(stderr, "game_route_packets : argument is null\n");
 		return -1;
 	}
 
+	int type = PACKET;
 	for(int player_num = 0; player_num < PLAYER_CNT; player_num++)
-	{
-		// 헤더 보내야함
-		write(users[player_num], player_packets[player_num], sizeof(player_packets[player_num]));
-		// 아크 보내야함
-	}	
+		packet_send(players[player_num], (char*)player_packets[player_num], &type);
 
 	return 0;
 }
 
-Player_packet** game_init(int* users, char* answer)
+Player_packet** game_init(int* players, char* answer)
 {
-	if(users == NULL || answer == NULL)
+	if(players == NULL || answer == NULL)
 	{
 		fprintf(stderr, "game_init : argument is null\n");
 		return NULL;
 	}
 	
-	Player_packet** player_packets = calloc(PLAYER_CNT, sizeof(Player_packet));
+	Player_packet** player_packets = calloc(PLAYER_CNT, sizeof(Player_packet*));
 	if(player_packets == NULL)
 	{
 		fprintf(stderr, "game_init : dynamic allocation error\n");
@@ -344,8 +364,10 @@ Player_packet** game_init(int* users, char* answer)
 		}
 	}
 
-	game_set_cards(player_packets, answer);
-	game_set_players(player_packets);
+	game_init_cards(player_packets, answer);
+	game_init_players(player_packets);
+
+	// route
 }
 
 char* game_set_answer()
@@ -370,19 +392,83 @@ char* game_set_answer()
 	return answer;
 }
 
+int game_roll_and_go(Player_packet** player_packets, int *players)
+{
+	if(player_packets == NULL || players == NULL)
+	{
+		fprintf(stderr, "game_roll_and_go : argument is null\n");
+		return -1;
+	}	
+
+	// 턴 플레이어를 찾는다.
+	int turn_player;
+	for(int player_num = 0; player_num < PLAYER_CNT; player_num++)
+	{
+		if(PLAYER_ISTURN(player_packets[player_num]->info))
+		{
+			turn_player = player_num;	
+			break;
+		}
+	}
+
+	// 턴 플레이어로부터 오는 주사위+선택 값을 받는다.
+	int type;
+	char buf[BUFSIZ];
+	packet_recv(players[turn_player], buf, &type);
+
+	// 각 플레이어의 패킷에 반영한다.
+	game_set_dice(player_packets, (Player_packet*)buf);	
+
+	// 버퍼를 초기화한 뒤 '(턴 플레이어)가 (주사위값)이 나와 (행동)을 했습니다.'라는 문자열을 다른 플레이어들에게 전송 
+	memset(buf, 0, BUFSIZ);
+	
+	
+
+	// 모든 플레이어에게 턴 플레이어의 주사위+선택 값을 전송
+
+
+	return 0;
+}
+
 int main()
 {
+	// 서버를 연다.
 	int ssock = server_open();	
+	// 플레이어 4명을 받는다.
 	int* players = server_accept(ssock);
+	// 정답 카드를 설정한다.
 	char* answer = game_set_answer();	
+	// 플레이어 게임 정보를 초기화한다.
 	Player_packet** player_packets = game_init(players, answer);
 
+	// 첫 번째 플레이어부터 시작
 	int turn_player = 0;
-/*	while(1)
+
+	// 게임이 끝날 때까지 반복
+	while(1)
 	{
-		// 루프 끝
+		Header header = {SIGNAL, SIGNAL_SIZE}; 
+		// 턴 플레이어에게 헤더를 보낸 후 시작 신호를 보낸다.
+		// 나머지 플레이어에게 헤더를 보낸 후 대기 신호를 보낸다.
+		for(int player_num = 0; player_num < PLAYER_CNT; player_num++)
+		{
+			int type = SIGNAL;
+			if(player_num == turn_player)
+			{
+				int signal = SIG_TURN;	
+				packet_send(players[player_num], (char*)&signal, &type);
+			}
+			else
+			{
+				int signal = SIG_WAIT;
+				packet_send(players[player_num], (char*)&signal, &type);
+			}
+		}
+
+		game_roll_and_go(player_packets, players);
 	}
-*/
+
+	// 루프 끝
 	return 0;
 }
 
