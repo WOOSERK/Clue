@@ -18,7 +18,7 @@
 int server_open()
 {
 	int ssock = socket(PF_INET, SOCK_STREAM, 0);
-	if(ssock == 1)
+	if(ssock == -1)
 	{
 		perror("socket");
 		return -1;

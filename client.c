@@ -21,7 +21,6 @@ int game_update(int sock);
 // int set_my_amazing_cards(WINDOW* window, Player_packet* player_pakcet);
 // int set_our_amazing_jeahyeon_history();
 // int set_our_amazing_jeahyeon_log();
-int sig_recv(int sock);
 int roll_and_go(int sock);
 int roll_dice(void);
 int return_player_choice(int dice_value);
@@ -36,11 +35,8 @@ int main(){
 		return -1;
 	}
 	int result = game_play(sock);
-	
+	return 0;	
 }
-
-
-
 
 int client_connect(void){
 	int sock = socket(PF_INET, SOCK_STREAM, 0); // tcp/ip 
@@ -52,7 +48,7 @@ int client_connect(void){
 	struct sockaddr_in addr = {0,};
 	addr.sin_family = AF_INET;
 	addr.sin_port = htons(8080);
-	addr.sin_addr.s_addr = inet_addr("192.168.194.138"); // 서버주소
+	addr.sin_addr.s_addr = inet_addr("192.168.30.6"); // 서버주소
 	
 	if(connect(sock, (struct sockaddr *)&addr, sizeof(addr)) == -1){
 		perror("connect");
@@ -65,10 +61,14 @@ int game_play(int sock){
 	// 이후 클라이언트는 sig_recv로 대기한다. 
 	// 서버는 SIG_TURN 또는 SIG_WAIT을 보낼 것이다.
 	while(1){
-		int sig = sig_recv(sock);
+		int sig;
+		int type= SIGNAL;
+		packet_recv(sock,(char*)&sig,&type);
 		if(sig == SIG_TURN){
+			printf("sigturn을 받았습니다.\n");
 			roll_and_go(sock);
 		}
+
 		char buf[BUFSIZ];
 		int nRead = read(sock, buf, sizeof(buf));
 
@@ -133,16 +133,15 @@ int game_update(int sock){
 	Player_packet packet;
 
 	// 패킷을 받는 것을 함수로 해야함.
-	char buf[BUFSIZ];
-	int nRead = read(sock, buf, sizeof(buf));
-	if(nRead <= 0){
-		perror("read");
-		return -1;
-	}	
-	buf[nRead] = '\0';
 	// 여기에는 받은 패킷을 파싱하는 함수가 있어야 함.
-
-	packet_recv(sock,&packet);
+	int struct_ = STRUCTURE ;
+	packet_recv(sock,(char*)&packet, &struct_);
+	printf("id: %d\n", PLAYER_ID(packet.info));
+	printf("phase: %d\n",PLAYER_PHASE(packet.info)); 
+	printf("isTurn: %d\n",PLAYER_ISTURN(packet.info)); 
+	printf("position: %d\n",PLAYER_POSITION(packet.position, 0)); 
+	printf("position: %d\n",PLAYER_POSITION(packet.position, 1)); 
+	
 
 
 	// 여기에서부터 초기화 업데이트
@@ -172,13 +171,4 @@ int game_update(int sock){
 // int set_our_amazing_jeahyeon_log(){
 // 
 // }
-int sig_recv(int sock){
-	int sig;
-	int nRead = read(sock, &sig, sizeof(int));
-	if(nRead < 0){
-		perror("read");
-		return -1;
-	}
-	return sig; 
-}
 
