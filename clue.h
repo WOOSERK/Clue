@@ -3,6 +3,7 @@
 #include <time.h>
 #define STRING (0)
 #define STRUCTURE (1)
+#define SIGNAL (2)
 #define SIG_TURN (1)
 #define SIG_WAIT (2)
 #define SIG_INFR (3)
@@ -45,22 +46,24 @@ int packet_send(int sock, char* packet, int* type)
 	// 1. 헤더 보냄
 	Header header;
 	header.type = *type;
-	size_t packet_size;
 	switch(*type)
 	{
 		// 문자열을 전송할 경우
 		case STRING:
-			packet_size = strlen(packet);
+			header.len = strlen(packet);
 			break;
 			// 구조체를 전송할 경우
 		case STRUCTURE:
-			packet_size = sizeof(Player_packet);
+			header.len = sizeof(Player_packet);
+			break;
+		case SIGNAL:
+			header.len = sizeof(int);
 			break;
 		default:
 			break;
 	}
-	header.len = packet_size;
-	int ret = write(sock, &header, header.len);
+
+	int ret = write(sock, &header, sizeof(Header));
 	if(ret == -1)
 	{
 		perror("packet_send");
@@ -71,7 +74,7 @@ int packet_send(int sock, char* packet, int* type)
 	// 성공적으로 전송할 때까지 반복
 	while(1)
 	{
-		int nwritten = write(sock, packet, packet_size);
+		int nwritten = write(sock, packet, header.len);
 
 		// 패킷을 전송하다 오류가 나면
 		if(nwritten == -1)
@@ -80,7 +83,7 @@ int packet_send(int sock, char* packet, int* type)
 			return -1;
 		}
 		// 패킷을 성공적으로 전송했으면
-		else if(nwritten == packet_size)
+		else if(nwritten == header.len)
 			break;
 		// 패킷이 정상적으로 가지 않았으면 다시 보냄
 		else
@@ -90,7 +93,7 @@ int packet_send(int sock, char* packet, int* type)
 	return 0;
 }
 
-// 성공하면 0, 실패하면 -1을 리턴
+// 성공하면 0, 실패하면 -1을 리턴. 인자 중 type은 반환에 사용
 int packet_recv(int sock, char* packet, int* type)
 {
 	if(packet == NULL || type == NULL)
@@ -106,7 +109,7 @@ int packet_recv(int sock, char* packet, int* type)
 	{
 		int nread = read(sock, &header, sizeof(header));
 		// 헤더를 읽다가 오류가 나면
-		if(nread < -1)
+		if(nread == -1)
 		{
 			perror("packet_recv");
 			return -1;
@@ -130,5 +133,6 @@ int packet_recv(int sock, char* packet, int* type)
 			break;
 	}
 
+	*type = header.type;
 	return 0;
 }
