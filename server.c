@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <string.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
@@ -320,20 +321,18 @@ int game_next_turn(Player_packet** player_packets)
 	return turn_player;
 }
 
-// 모든 플레이어에게 패킷을 보내는 함수
-int game_route(int* players, Player_packet** player_packets)
+// 모든 플레이어에게 각자의 플레이어 패킷을 보내는 함수
+int game_route_packets(Player_packet** player_packets, int* players)
 {
 	if(players == NULL || player_packets == NULL)
 	{
-		fprintf(stderr, "game_route : argument is null\n");
+		fprintf(stderr, "game_route_packets : argument is null\n");
 		return -1;
 	}
 
+	int type = PACKET;
 	for(int player_num = 0; player_num < PLAYER_CNT; player_num++)
-	{
-		// 헤더 보내야함
-		write(players[player_num], player_packets[player_num], sizeof(player_packets[player_num]));
-	}	
+		packet_send(players[player_num], (char*)player_packets[player_num], &type);
 
 	return 0;
 }
@@ -346,7 +345,7 @@ Player_packet** game_init(int* players, char* answer)
 		return NULL;
 	}
 	
-	Player_packet** player_packets = calloc(PLAYER_CNT, sizeof(Player_packet));
+	Player_packet** player_packets = calloc(PLAYER_CNT, sizeof(Player_packet*));
 	if(player_packets == NULL)
 	{
 		fprintf(stderr, "game_init : dynamic allocation error\n");
@@ -395,19 +394,83 @@ char* game_set_answer()
 	return answer;
 }
 
-int main()
+int game_roll_and_go(Player_packet** player_packets, int *players)
 {
-	int ssock = server_open();	
-	int* players = server_accept(ssock);
-	char* answer = game_set_answer();	
-	Player_packet** player_packets = game_init(players, answer);
-
-	int turn_player = 0;
-	while(1)
+	if(player_packets == NULL || players == NULL)
 	{
-		// 루프 끝
+		fprintf(stderr, "game_roll_and_go : argument is null\n");
+		return -1;
+	}	
+
+	// 턴 플레이어를 찾는다.
+	int turn_player;
+	for(int player_num = 0; player_num < PLAYER_CNT; player_num++)
+	{
+		if(PLAYER_ISTURN(player_packets[player_num]->info))
+		{
+			turn_player = player_num;	
+			break;
+		}
 	}
 
+	// 턴 플레이어로부터 오는 주사위+선택 값을 받는다.
+	int type;
+	char buf[BUFSIZ];
+	packet_recv(players[turn_player], buf, &type);
+
+	// 각 플레이어의 패킷에 반영한다.
+	game_set_dice(player_packets, (Player_packet*)buf);	
+
+	// 버퍼를 초기화한 뒤 '(턴 플레이어)가 (주사위값)이 나와 (행동)을 했습니다.'라는 문자열을 다른 플레이어들에게 전송 
+	memset(buf, 0, BUFSIZ);
+	
+	
+
+	// 모든 플레이어에게 턴 플레이어의 주사위+선택 값을 전송
+
+
+	return 0;
+}
+
+int main()
+{
+	// 서버를 연다.
+	int ssock = server_open();	
+	// 플레이어 4명을 받는다.
+	int* players = server_accept(ssock);
+	// 정답 카드를 설정한다.
+	char* answer = game_set_answer();	
+	// 플레이어 게임 정보를 초기화한다.
+	Player_packet** player_packets = game_init(players, answer);
+
+	// 첫 번째 플레이어부터 시작
+	int turn_player = 0;
+
+	// 게임이 끝날 때까지 반복
+	while(1)
+	{
+		Header header = {SIGNAL, SIGNAL_SIZE}; 
+		// 턴 플레이어에게 헤더를 보낸 후 시작 신호를 보낸다.
+		// 나머지 플레이어에게 헤더를 보낸 후 대기 신호를 보낸다.
+		for(int player_num = 0; player_num < PLAYER_CNT; player_num++)
+		{
+			int type = SIGNAL;
+			if(player_num == turn_player)
+			{
+				int signal = SIG_TURN;	
+				packet_send(players[player_num], (char*)&signal, &type);
+			}
+			else
+			{
+				int signal = SIG_WAIT;
+				packet_send(players[player_num], (char*)&signal, &type);
+			}
+		}
+
+		game_roll_and_go(player_packets, players);
+	}
+
+	// 루프 끝
 	return 0;
 }
 
