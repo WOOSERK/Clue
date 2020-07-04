@@ -1,9 +1,11 @@
 #include <unistd.h>
 #include <string.h>
 #include <time.h>
-#define STRING (0)
-#define STRUCTURE (1)
+#define PACKET (1)
 #define SIGNAL (2)
+#define PACKET_SIZE (sizeof(Player_packet))
+#define SIGNAL_SIZE (sizeof(int))
+#define HEADER_SIZE (sizeof(Header))
 #define SIG_TURN (1)
 #define SIG_WAIT (2)
 #define SIG_INFR (3)
@@ -48,12 +50,8 @@ int packet_send(int sock, char* packet, int* type)
 	header.type = *type;
 	switch(*type)
 	{
-		// 문자열을 전송할 경우
-		case STRING:
-			header.len = strlen(packet);
-			break;
-			// 구조체를 전송할 경우
-		case STRUCTURE:
+		// Player_packet을 전송할 경우
+		case PACKET:
 			header.len = sizeof(Player_packet);
 			break;
 		case SIGNAL:
