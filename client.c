@@ -63,17 +63,20 @@ int client_connect(void){
 
 int game_play(int sock, int player_id){
 	
-	// 이후 클라이언트는 sig_recv로 대기한다. 
+	// 이후 클라이언트는 packet_recv로 대기한다. 
 	// 서버는 SIG_TURN 또는 SIG_WAIT을 보낼 것이다.
 	while(1){
 		int sig;
-		int type= SIGNAL;
-		packet_recv(sock,(char*)&sig,&type);
+		int type = SIGNAL;
+		packet_recv(sock,(char*)&sig, &type);
 		if(sig == SIG_TURN){
 			printf("sigturn을 받았습니다.\n");
 			printf("player_id: %d\n", player_id);
 			roll_and_go(sock, player_id);
 		}
+
+		// 턴 플레이어의 정보를 모든 플레이어가 받음
+		packet_recv(sock,(char*)&sig, &type);
 	}
 }
 
@@ -103,14 +106,6 @@ int roll_and_go(int sock, int player_id){
 
 	int type = PACKET;
 	packet_send(sock, (char*)&packet, &type);
-
-	/*
-	int nWrite = write(sock, &packet, sizeof(packet)); 
-	if(nWrite <= 0 ){
-		perror("write");
-		return -1;
-	}
-	*/
 
 	return 0;
 }
@@ -142,18 +137,12 @@ int return_player_position(int choice, int* y, int*x){
 }
 
 int set_dice_in_packet(Player_packet* packet, int dice_value, int choice_value){
-	printf("dice_value: %d\n", dice_value);
-	printf("choice_value: %d\n", choice_value);
-	
 	packet->dice |= (unsigned char)(dice_value << 3);
 	packet->dice |= (unsigned char)(choice_value);
 	return 0;
 }
 
 int set_player_in_packet(Player_packet* packet, int player_id, int y, int x){
-	printf("x: %d\n", x);
-	printf("y: %d\n", y);
-
 	x <<= 2;
 	packet->position |= (unsigned short)(x << ((3 - player_id) * 4));
 	packet->position |= (unsigned short)(y << ((3 - player_id) * 4));
@@ -172,14 +161,8 @@ int game_update(int sock, int *player_id){
 	int type;
 	packet_recv(sock,(char*)&packet, &type);
 
-	printf("플레이어 %d :업데이트 시작!!\n", PLAYER_ID(packet.info));
-	printf("phase: %d\n",PLAYER_PHASE(packet.info)); 
-	printf("isTurn: %d\n",PLAYER_ISTURN(packet.info)); 
-	printf("position: %d\n",(unsigned short)PLAYER_POSITION(packet.position, 0)); 
-	printf("position: %d\n",(unsigned short)PLAYER_POSITION(packet.position, 1)); 
-	printf("position: %d\n",(unsigned short)PLAYER_POSITION(packet.position, 2)); 
-	printf("position: %d\n",(unsigned short)PLAYER_POSITION(packet.position, 3)); 
-	printf("플레이어 %d : 업데이트 완료!!\n", PLAYER_ID(packet.info));
+	printf("DICE_VALUE: %d\n", PLAYER_DICE_VALUE(packet.dice));
+	printf("SELECT_VALUE: %d\n", PLAYER_SELECT_VALUE(packet.dice));
 
 	// 여기에서부터 초기화 업데이트
 	// 	ui_update(player); // 여기에선 리턴값을 어떻게 설정할지 몰라서 if처리 안했음
