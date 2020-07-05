@@ -1,5 +1,7 @@
 #include <ncurses.h>
 #include <stdlib.h>
+#define NUM_ABS(a,b) ((a-b) < 0 ? ((-1)*(a-b)) : (a-b))
+#define CAL_RANGE(cury,curx,y,x) (NUM_ABS(cury,y)+NUM_ABS(curx,x))
 #define MAPS_NUM (11)
 #define LAYOUT_NUM (6)
 #define INFER_RESULT (3)
@@ -43,10 +45,12 @@ WINDOW** display_player(int height, int width, int startY,int startX);
 void blink_player(WINDOW** player,int num);
 /* 맵에 말을 생성 및 초기설정합니다. player_num : 현재 순번인 플레이어 번호*/
 WINDOW** make_horse(int player_num);
-/* 맵의 현재 상태를 업데이트합니다. player: 플레이어의 위치에 해당하는 윈도우 배열, room_num : 플레이어가 위치하는 방 번호, player_num : 현재 순번의 플레이어*/
+/* 맵의 현재 상태를 업데이트합니다. player: 플레이어의 위치에 해당하는 윈도우 배열, room_num : 플레이어가 위치 할 방번호, player_num : 현재 순번의 플레이어*/
 void horse_update(WINDOW **player, int room_num, int player_num);
-/* 맵에서의 커서 이동, room : 플레이어 위치 배열 , player : 현재 순번의 플레이어 return : 플레이어가 선택한 방의 값*/
-int map_cursor(WINDOW** room, int player);
+/* 맵에서의 커서 이동, room : 플레이어 위치 배열 , player : 현재 순번의 플레이어(0-3) return : 플레이어가 선택한 방의 값*/
+int map_cursor(WINDOW **room,int player,int range,int cury,int curx);
+/* 맵 이동시 커서를 제어하는 함수 choice_room : 턴클이 선택한 방번호, range : 이동 가능한 거리(2-4), cury,curx : 현재 플레이어 말의 위치) return ->> 1 : 이등가능 -1 : 이동불가능*/
+int move_limit(int choice_room,int range,int cury,int curx);
 
 void run(){
 	initscr();
@@ -112,7 +116,24 @@ void run(){
 		horse_update(player1,i,0);
 		getchar();
 	}*/
-	map_cursor(player1,0);
+	
+	int map_value[2][3]={{0,1,2},{3,4,5}};
+	int curx,cury;
+	int room_num = map_cursor(player1,0,2,-1,-1);
+	for(int y = 0 ; y < 2 ; y++){
+		for ( int x = 0 ; x < 3 ; x++){
+			if(map_value[y][x] == room_num){
+				cury = y;
+				curx = x;
+			}
+		}
+	}
+	mvprintw(1,1,"y= %dx =%d",cury,curx);
+	horse_update(player1,room_num,0);	
+	room_num = map_cursor(player1,0,2,cury,curx);
+	mvprintw(1,2,"%d",room_num);
+	horse_update(player1,room_num,0);	
+	wrefresh(stdscr);
 	getchar();
 	endwin();
 }
@@ -469,7 +490,7 @@ void blink_player(WINDOW** player, int num){
 	}
 }
 WINDOW** make_horse(int player_num){
-	WINDOW **maps = malloc(sizeof(WINDOW*)*PLACE_NUM+1);
+	WINDOW **maps = malloc(sizeof(WINDOW*)*PLACE_NUM+2);
    maps[0] = newwin(1,1,8,11+player_num); // kitchen
    maps[1] = newwin(1,1,8,28+player_num); // classroom
    maps[2] = newwin(1,1,8,100+player_num); // tilet
@@ -477,11 +498,14 @@ WINDOW** make_horse(int player_num){
    maps[4] = newwin(1,1,19,64+player_num); // livingroom
    maps[5] = newwin(1,1,19,77+player_num); // training
    maps[6] = newwin(1,1,6,74+player_num); // looftop
+   maps[7] = newwin(1,1,13,40+player_num);
 
-	for(int i = 0 ; i < PLACE_NUM+1 ; i++){
+
+	for(int i = 0 ; i <= PLACE_NUM+1 ; i++){
 		wbkgd(maps[i],COLOR_PAIR(1));
 	}
-	horse_update(maps,6,player_num);
+	mvwprintw(maps[7],0,0,"%d",player_num+1);
+	wrefresh(maps[7]);
 	return maps;
 }
 void horse_update(WINDOW** player,int room_num,int player_num){
@@ -497,7 +521,7 @@ void horse_update(WINDOW** player,int room_num,int player_num){
 	return ;
 }
 
-int map_cursor(WINDOW **room,int player){
+int map_cursor(WINDOW **room,int player,int range,int cury,int curx){
 	wmove(room[6],0,0);
 	wrefresh(room[6]);
 	noecho();
@@ -522,11 +546,38 @@ int map_cursor(WINDOW **room,int player){
 				break;
 			default:
 				if( ch == 's'){
-					return cnt; 
+					if(move_limit(cnt,range-1,cury,curx) == -1){;}
+					else{
+						werase(room[7]);
+						wrefresh(room[7]);
+						return cnt; 
+					}	
 				}
-				break;
 		}
 	}
+}
+int move_limit(int choice_room,int range,int cury,int curx){
+	int map_value[2][3]={{0,1,2},{3,4,5}};
+	int map[6]={0,};
+	if(cury == -1 && curx == -1 )return 1;
+	for(int y = 0 ; y < 2; y ++){
+		for( int x = 0 ; x < 3 ; x ++){
+			if(range >=CAL_RANGE(cury,curx,y,x)){
+				map[map_value[y][x]] = 1;
+			}
+		}
+	}
+	for(int i = 0 ; i < 6 ; i ++){
+		if(choice_room == i){
+			if(map[i] ==1){
+				return 1;
+			}
+			else{
+				return -1;
+			}
+		}
+	}
+	return -1;
 }
 
 
