@@ -12,30 +12,34 @@
 
 
 int client_connect(void);
-int game_play(int);
-int client_connect(void);
-int game_update(int sock);
+int game_update(int sock, int *player_id);
+int game_play(int sock, int player_id);
 // int ui_update(Player_packet* );
 // int change_player_position(WINDOW* window, Player_packet* player_pakcet);
 // int set_my_amazing_cards(WINDOW* window, Player_packet* player_pakcet);
 // int set_our_amazing_jeahyeon_history();
 // int set_our_amazing_jeahyeon_log();
-int roll_and_go(int sock);
-int roll_dice(void);
+int roll_and_go(int sock, int player_id); int roll_dice(void);
 int return_player_choice(int dice_value);
 int return_player_position(int choice, int* y, int* x);
-int set_dice_in_packet(Player_packet* packet, int* num, int* choice);
-int set_player_in_packet(Player_packet* packet, int* num, int* choice);
+int set_dice_in_packet(Player_packet* packet, int dice_value, int choice_value);
+int set_player_in_packet(Player_packet* packet, int player_id, int y, int x);
 int sig_recv(int sock);
 
+
 int main(){
+	
 	int sock = client_connect();
-	if(game_update(sock) == -1){
+
+	int player_id;
+	if(game_update(sock, &player_id) == -1){
 		return -1;
 	}
-	int result = game_play(sock);
+
+	int result = game_play(sock, player_id);
 	return 0;	
 }
+
 
 int client_connect(void){
 	int sock = socket(PF_INET, SOCK_STREAM, 0); // tcp/ip 
@@ -56,7 +60,9 @@ int client_connect(void){
 
 	return sock;
 }
-int game_play(int sock){
+
+int game_play(int sock, int player_id){
+	
 	// 이후 클라이언트는 sig_recv로 대기한다. 
 	// 서버는 SIG_TURN 또는 SIG_WAIT을 보낼 것이다.
 	while(1){
@@ -65,67 +71,97 @@ int game_play(int sock){
 		packet_recv(sock,(char*)&sig,&type);
 		if(sig == SIG_TURN){
 			printf("sigturn을 받았습니다.\n");
-			roll_and_go(sock);
+			printf("player_id: %d\n", player_id);
+			roll_and_go(sock, player_id);
 		}
-
-		char buf[BUFSIZ];
-		int nRead = read(sock, buf, sizeof(buf));
-
 	}
 }
 
-int roll_and_go(int sock){
-	int num = 0;
-	int choice = 0;
+int roll_and_go(int sock, int player_id){
+
+	int dice_value = 0;
+	int choice_value = 0;
 	int x,y;
-	
-	num = roll_dice();
-	choice = return_player_choice(num);
-	if(return_player_position(choice, &y, &x) == -1){
+
+	// 주사위값 얻어냄
+	dice_value = roll_dice();
+
+	// 선택값 얻어냄
+	choice_value = return_player_choice(dice_value);
+
+	// 위치값 얻어냄
+	if(return_player_position(choice_value, &y, &x) == -1){
 		return -1;	 
 	}
-	Player_packet packet;
-	set_dice_in_packet(&packet, &num, &choice);
-	set_player_in_packet(&packet, &y, &x);
 
-	int nWrite = write(sock,&packet, sizeof(packet)); 
+	Player_packet packet = {0,};
+	set_dice_in_packet(&packet, dice_value, choice_value);
+	set_player_in_packet(&packet, player_id, y, x);
+
+	printf("dice: %d\n", (unsigned char)packet.dice);
+	printf("position: %hu\n", packet.position);
+
+	int type = PACKET;
+	packet_send(sock, (char*)&packet, &type);
+
+	/*
+	int nWrite = write(sock, &packet, sizeof(packet)); 
 	if(nWrite <= 0 ){
 		perror("write");
 		return -1;
 	}
+	*/
+
 	return 0;
 }
+
 int roll_dice(void){
 	return (rand()%6);
 }
+
 int return_player_choice(int dice_value){
+	
 	// 선택값을 리턴하는 함수
-	int select_no = -1;
+	int choice_value = -1;
 	while(1){
 		printf("나온값의 수: %d\n  이하의 수들중 하나의 값을 고르세요: ",dice_value);
-		scanf("%d",&select_no);
-		if(select_no <= dice_value){
+		scanf("%d",&choice_value);
+		if(choice_value <= dice_value){
 			break;	
 		}
 	}
-	return select_no;
+	return choice_value;
 }
 
 int return_player_position(int choice, int* y, int*x){
-	*x = 2;
+	*x = 1;
 	*y = 2;
 	// 이부분은 ui와 연동이 되어야 함.
 
+	return 0;
+}
 
+int set_dice_in_packet(Player_packet* packet, int dice_value, int choice_value){
+	printf("dice_value: %d\n", dice_value);
+	printf("choice_value: %d\n", choice_value);
+	
+	packet->dice |= (unsigned char)(dice_value << 3);
+	packet->dice |= (unsigned char)(choice_value);
 	return 0;
 }
-int set_dice_in_packet(Player_packet* packet, int* num, int* choice){
+
+int set_player_in_packet(Player_packet* packet, int player_id, int y, int x){
+	printf("x: %d\n", x);
+	printf("y: %d\n", y);
+
+	x <<= 2;
+	packet->position |= (unsigned short)(x << ((3 - player_id) * 4));
+	packet->position |= (unsigned short)(y << ((3 - player_id) * 4));
 	return 0;
 }
-int set_player_in_packet(Player_packet* packet, int* num, int* choice){
-	return 0;
-}
-int game_update(int sock){
+
+int game_update(int sock, int *player_id){
+	
 	//서버로부터 초기화 패킷을 받아 게임을 초기화
 	//클라이언트는 자신패킷을 가지고 있지 않음 .
 	//따라서 매번 서버에서 패킷을 받아서 파싱해야 함.
@@ -136,20 +172,20 @@ int game_update(int sock){
 	int type;
 	packet_recv(sock,(char*)&packet, &type);
 
-	printf("id: %d\n", PLAYER_ID(packet.info));
+	printf("플레이어 %d :업데이트 시작!!\n", PLAYER_ID(packet.info));
 	printf("phase: %d\n",PLAYER_PHASE(packet.info)); 
 	printf("isTurn: %d\n",PLAYER_ISTURN(packet.info)); 
-
 	printf("position: %d\n",(unsigned short)PLAYER_POSITION(packet.position, 0)); 
 	printf("position: %d\n",(unsigned short)PLAYER_POSITION(packet.position, 1)); 
 	printf("position: %d\n",(unsigned short)PLAYER_POSITION(packet.position, 2)); 
 	printf("position: %d\n",(unsigned short)PLAYER_POSITION(packet.position, 3)); 
+	printf("플레이어 %d : 업데이트 완료!!\n", PLAYER_ID(packet.info));
 
 	// 여기에서부터 초기화 업데이트
 	// 	ui_update(player); // 여기에선 리턴값을 어떻게 설정할지 몰라서 if처리 안했음
 
+	*player_id = PLAYER_ID(packet.info);
 	return 0;	
-
 }
 
 // int ui_update(Player_packet* player_packet){

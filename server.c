@@ -12,7 +12,7 @@
 #define CRIMINAL (2) // 범인
 #define SHUFFLE_CNT (10) // 섞는 횟수
 #define DISTRIBUTE_CARD_CNT (16) // 분배되는 카드 개수
-#define PLAYER_CNT (3) // 플레이어는 4명
+#define PLAYER_CNT (2) // 플레이어는 4명
 
 
 // 서버 여는(서버 소켓 만드는) 함수
@@ -96,7 +96,6 @@ int game_set_position(Player_packet** player_packets, Player_packet* player_pack
 	short position_bit = player_packet->position;
 	for(int player_num = 0; player_num < PLAYER_CNT; player_num++) {
 		player_packets[player_num]->position = position_bit;	
-		printf("%d\n", player_packets[player_num]->position);
 	}
 
 	return 0;
@@ -117,7 +116,7 @@ int game_init_players(Player_packet** player_packets)
 	// 플레이어의 식별 번호를 패킷에 할당한다.
 	for(int player_num = 0; player_num < PLAYER_CNT; player_num++) {
 		player_packets[player_num]->info |= player_num;
-		printf("%d\n", PLAYER_ID(player_packets[player_num]->info));
+		printf("PLAYER_ID: %d\n", PLAYER_ID(player_packets[player_num]->info));
 	}
 
 	// 모든 플레이어를 x:1, y:1로 설정
@@ -200,7 +199,7 @@ int game_set_turn(Player_packet** player_packets)
 			continue;
 	}
 
-	return player_num;
+	return (player_num+1) % PLAYER_CNT;
 }
 
 int game_set_phase(Player_packet** player_packets)
@@ -212,8 +211,9 @@ int game_set_phase(Player_packet** player_packets)
 	}
 
 	char phase_bit = 0x4;
-	for(int player_num = 0; player_num < PLAYER_CNT; player_num++)
+	for(int player_num = 0; player_num < PLAYER_CNT; player_num++) {
 		player_packets[player_num]->info ^= phase_bit;
+	}
 
 	return 0;
 }
@@ -306,6 +306,8 @@ int game_init_player_data(Player_packet** player_packets)
 
 int game_next_turn(Player_packet** player_packets)
 {
+	printf("call game_next_turn\n");
+
 	if(player_packets == NULL)
 	{
 		fprintf(stderr, "game_next_turn : argument is null\n");
@@ -318,9 +320,8 @@ int game_next_turn(Player_packet** player_packets)
 		fprintf(stderr, "game_next_turn : game_init_player_data error\n");
 		return -1;
 	}
-	
+
 	int turn_player = game_set_turn(player_packets);
-	
 	return turn_player;
 }
 
@@ -372,6 +373,7 @@ Player_packet** game_init(int* players, char* answer)
 	game_init_cards(player_packets, answer);
 	game_init_players(player_packets);
 	game_route_packet(player_packets, players);
+	return player_packets;
 }
 
 char* game_set_answer()
@@ -398,7 +400,7 @@ char* game_set_answer()
 
 int game_roll_and_go(Player_packet** player_packets, int *players)
 {
-	if(player_packets == NULL || players == NULL)
+	if (player_packets == NULL || players == NULL)
 	{
 		fprintf(stderr, "game_roll_and_go : argument is null\n");
 		return -1;
@@ -437,23 +439,25 @@ int main()
 {
 	// 서버를 연다.
 	int ssock = server_open();	
+	
 	// 플레이어 4명을 받는다.
 	int* players = server_accept(ssock);
+
 	// 정답 카드를 설정한다.
 	char* answer = game_set_answer();	
 	
-	// 플레이어 게임 정보를 초기화한다.
-	// 전송까지 함
+	// 플레이어 게임 정보를 초기화한 뒤 각 플레이어에게 전송
 	Player_packet** player_packets = game_init(players, answer);
 
 	// 첫 번째 플레이어부터 시작
 	int turn_player = 0;
-
+	player_packets[0]->info |= 0x8;
 
 	// 게임이 끝날 때까지 반복
 	while(1)
 	{
 		Header header = {SIGNAL, SIGNAL_SIZE}; 
+		
 		// 턴 플레이어에게 헤더를 보낸 후 시작 신호를 보낸다.
 		// 나머지 플레이어에게 헤더를 보낸 후 대기 신호를 보낸다.
 		for(int player_num = 0; player_num < PLAYER_CNT; player_num++)
@@ -471,7 +475,12 @@ int main()
 			}
 		}
 
-		// game_roll_and_go(player_packets, players);
+		game_roll_and_go(player_packets, players);
+		
+		// game_infer();
+	
+		// 턴 플레이어를 변경
+		turn_player = game_next_turn(player_packets);
 	}
 
 	// 루프 끝

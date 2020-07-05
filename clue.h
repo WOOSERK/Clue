@@ -21,6 +21,7 @@
 #define PLAYER_INFER_WEAPON(player_infer) ((player_infer) & ((unsigned short)0x30e0))
 #define PLAYER_INFER_CRIMINAL(player_infer) ((player_infer) & ((unsigned short)0x1f))
 
+
 typedef struct header
 {
 	int type;
