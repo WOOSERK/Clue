@@ -50,7 +50,7 @@ int client_connect(void){
 	struct sockaddr_in addr = {0,};
 	addr.sin_family = AF_INET;
 	addr.sin_port = htons(8080);
-	addr.sin_addr.s_addr = inet_addr("192.168.30.6"); // 서버주소
+	addr.sin_addr.s_addr = inet_addr("192.168.25.51"); // 서버주소
 	
 	if(connect(sock, (struct sockaddr *)&addr, sizeof(addr)) == -1){
 		perror("connect");
