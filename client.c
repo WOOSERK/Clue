@@ -29,13 +29,10 @@ int set_player_in_packet(Player_packet* packet, int* num, int* choice);
 int sig_recv(int sock);
 
 int main(){
-	
 	int sock = client_connect();
-	
 	if(game_update(sock) == -1){
 		return -1;
 	}
-
 	int result = game_play(sock);
 	return 0;	
 }
@@ -50,7 +47,7 @@ int client_connect(void){
 	struct sockaddr_in addr = {0,};
 	addr.sin_family = AF_INET;
 	addr.sin_port = htons(8080);
-	addr.sin_addr.s_addr = inet_addr("192.168.25.51"); // 서버주소
+	addr.sin_addr.s_addr = inet_addr("192.168.30.6"); // 서버주소
 	
 	if(connect(sock, (struct sockaddr *)&addr, sizeof(addr)) == -1){
 		perror("connect");
@@ -59,13 +56,12 @@ int client_connect(void){
 
 	return sock;
 }
-
 int game_play(int sock){
 	// 이후 클라이언트는 sig_recv로 대기한다. 
 	// 서버는 SIG_TURN 또는 SIG_WAIT을 보낼 것이다.
 	while(1){
 		int sig;
-		int type = SIGNAL;
+		int type= SIGNAL;
 		packet_recv(sock,(char*)&sig,&type);
 		if(sig == SIG_TURN){
 			printf("sigturn을 받았습니다.\n");
@@ -75,7 +71,6 @@ int game_play(int sock){
 		char buf[BUFSIZ];
 		int nRead = read(sock, buf, sizeof(buf));
 
-		// game_infer 진행
 	}
 }
 
@@ -100,11 +95,9 @@ int roll_and_go(int sock){
 	}
 	return 0;
 }
-
 int roll_dice(void){
 	return (rand()%6);
 }
-
 int return_player_choice(int dice_value){
 	// 선택값을 리턴하는 함수
 	int select_no = -1;
@@ -126,15 +119,12 @@ int return_player_position(int choice, int* y, int*x){
 
 	return 0;
 }
-
 int set_dice_in_packet(Player_packet* packet, int* num, int* choice){
 	return 0;
 }
-
 int set_player_in_packet(Player_packet* packet, int* num, int* choice){
 	return 0;
 }
-
 int game_update(int sock){
 	//서버로부터 초기화 패킷을 받아 게임을 초기화
 	//클라이언트는 자신패킷을 가지고 있지 않음 .
@@ -143,7 +133,7 @@ int game_update(int sock){
 
 	// 패킷을 받는 것을 함수로 해야함.
 	// 여기에는 받은 패킷을 파싱하는 함수가 있어야 함.
-	int struct_ = PACKET;
+	int struct_ = STRUCTURE ;
 	packet_recv(sock,(char*)&packet, &struct_);
 
 	printf("id: %d\n", PLAYER_ID(packet.info));
@@ -153,9 +143,10 @@ int game_update(int sock){
 	printf("position: %d\n",PLAYER_POSITION(packet.position, 1)); 
 
 	// 여기에서부터 초기화 업데이트
-	// ui_update(player); // 여기에선 리턴값을 어떻게 설정할지 몰라서 if처리 안했음
+	// 	ui_update(player); // 여기에선 리턴값을 어떻게 설정할지 몰라서 if처리 안했음
 
 	return 0;	
+
 }
 
 // int ui_update(Player_packet* player_packet){
@@ -178,4 +169,5 @@ int game_update(int sock){
 // int set_our_amazing_jeahyeon_log(){
 // 
 // }
+
 
