@@ -227,6 +227,7 @@ int game_set_dice(Player_packet** player_packets, Player_packet* player_packet)
 	}
 
 	char dice_bit = PLAYER_DICE_VALUE(player_packet->dice);
+	// 선택값도 세팅해야될듯...?
 	for(int player_num = 0; player_num < PLAYER_CNT; player_num++)
 		player_packets[player_num]->dice = dice_bit;
 
@@ -306,8 +307,6 @@ int game_init_player_data(Player_packet** player_packets)
 
 int game_next_turn(Player_packet** player_packets)
 {
-	printf("call game_next_turn\n");
-
 	if(player_packets == NULL)
 	{
 		fprintf(stderr, "game_next_turn : argument is null\n");
@@ -431,6 +430,12 @@ int game_roll_and_go(Player_packet** player_packets, int *players)
 
 	// 모든 플레이어에게 턴 플레이어의 주사위+선택 값을 전송
 	game_route_packet(player_packets, players);
+
+	printf("\n-----턴플레이어에게 전달받은 패킷 출력-----\n");
+	printf("POSITION: %d\n", PLAYER_POSITION(player_packets[0]->position, turn_player));
+	printf("%d\n", (unsigned char)(player_packets[0]->dice));
+	printf("DICE_VALUE: %d\n", PLAYER_DICE_VALUE(player_packets[0]->dice));
+	printf("SELECT_VALUE: %d\n", PLAYER_SELECT_VALUE(player_packets[0]->dice));
 
 	return 0;
 }
