@@ -580,4 +580,4 @@ int move_limit(int choice_room,int range,int cury,int curx){
 	return -1;
 }
 
-
+		
