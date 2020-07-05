@@ -12,7 +12,7 @@
 #define CRIMINAL (2) // 범인
 #define SHUFFLE_CNT (10) // 섞는 횟수
 #define DISTRIBUTE_CARD_CNT (16) // 분배되는 카드 개수
-#define PLAYER_CNT (4) // 플레이어는 4명
+#define PLAYER_CNT (3) // 플레이어는 4명
 
 
 // 서버 여는(서버 소켓 만드는) 함수
@@ -94,8 +94,10 @@ int game_set_position(Player_packet** player_packets, Player_packet* player_pack
 	}
 
 	short position_bit = player_packet->position;
-	for(int player_num = 0; player_num < PLAYER_CNT; player_num++)
+	for(int player_num = 0; player_num < PLAYER_CNT; player_num++) {
 		player_packets[player_num]->position = position_bit;	
+		printf("%d\n", player_packets[player_num]->position);
+	}
 
 	return 0;
 }
@@ -111,9 +113,12 @@ int game_init_players(Player_packet** player_packets)
 
 	Player_packet position_packet = {0,};
 	position_packet.position = 0x5555;
+	
 	// 플레이어의 식별 번호를 패킷에 할당한다.
-	for(int player_num = 0; player_num < PLAYER_CNT; player_num++)
+	for(int player_num = 0; player_num < PLAYER_CNT; player_num++) {
 		player_packets[player_num]->info |= player_num;
+		printf("%d\n", PLAYER_ID(player_packets[player_num]->info));
+	}
 
 	// 모든 플레이어를 x:1, y:1로 설정
 	game_set_position(player_packets, &position_packet);
@@ -366,8 +371,7 @@ Player_packet** game_init(int* players, char* answer)
 
 	game_init_cards(player_packets, answer);
 	game_init_players(player_packets);
-
-	// route
+	game_route_packet(player_packets, players);
 }
 
 char* game_set_answer()
@@ -437,11 +441,14 @@ int main()
 	int* players = server_accept(ssock);
 	// 정답 카드를 설정한다.
 	char* answer = game_set_answer();	
+	
 	// 플레이어 게임 정보를 초기화한다.
+	// 전송까지 함
 	Player_packet** player_packets = game_init(players, answer);
 
 	// 첫 번째 플레이어부터 시작
 	int turn_player = 0;
+
 
 	// 게임이 끝날 때까지 반복
 	while(1)
@@ -464,7 +471,7 @@ int main()
 			}
 		}
 
-		game_roll_and_go(player_packets, players);
+		// game_roll_and_go(player_packets, players);
 	}
 
 	// 루프 끝

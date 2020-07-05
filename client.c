@@ -47,7 +47,7 @@ int client_connect(void){
 	struct sockaddr_in addr = {0,};
 	addr.sin_family = AF_INET;
 	addr.sin_port = htons(8080);
-	addr.sin_addr.s_addr = inet_addr("192.168.30.6"); // 서버주소
+	addr.sin_addr.s_addr = inet_addr("127.0.0.1"); // 서버주소
 	
 	if(connect(sock, (struct sockaddr *)&addr, sizeof(addr)) == -1){
 		perror("connect");
@@ -133,14 +133,17 @@ int game_update(int sock){
 
 	// 패킷을 받는 것을 함수로 해야함.
 	// 여기에는 받은 패킷을 파싱하는 함수가 있어야 함.
-	int struct_ = STRUCTURE ;
-	packet_recv(sock,(char*)&packet, &struct_);
+	int type;
+	packet_recv(sock,(char*)&packet, &type);
 
 	printf("id: %d\n", PLAYER_ID(packet.info));
 	printf("phase: %d\n",PLAYER_PHASE(packet.info)); 
 	printf("isTurn: %d\n",PLAYER_ISTURN(packet.info)); 
-	printf("position: %d\n",PLAYER_POSITION(packet.position, 0)); 
-	printf("position: %d\n",PLAYER_POSITION(packet.position, 1)); 
+
+	printf("position: %d\n",(unsigned short)PLAYER_POSITION(packet.position, 0)); 
+	printf("position: %d\n",(unsigned short)PLAYER_POSITION(packet.position, 1)); 
+	printf("position: %d\n",(unsigned short)PLAYER_POSITION(packet.position, 2)); 
+	printf("position: %d\n",(unsigned short)PLAYER_POSITION(packet.position, 3)); 
 
 	// 여기에서부터 초기화 업데이트
 	// 	ui_update(player); // 여기에선 리턴값을 어떻게 설정할지 몰라서 if처리 안했음
