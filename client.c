@@ -7,6 +7,7 @@
 #include <sys/uio.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include <time.h>
 
 #include "clue.h"
 
@@ -67,16 +68,17 @@ int game_play(int sock, int player_id){
 	// 서버는 SIG_TURN 또는 SIG_WAIT을 보낼 것이다.
 	while(1){
 		int sig;
-		int type = SIGNAL;
+		int type;
 		packet_recv(sock,(char*)&sig, &type);
 		if(sig == SIG_TURN){
-			printf("sigturn을 받았습니다.\n");
-			printf("player_id: %d\n", player_id);
+			printf("턴클라이언트: %d\n", player_id);
+			printf("%d 클라이언트가 sigturn신호를 받았습니다.\n", player_id);
 			roll_and_go(sock, player_id);
 		}
 
-		// 턴 플레이어의 정보를 모든 플레이어가 받음
-		packet_recv(sock,(char*)&sig, &type);
+		// 턴 플레이어의 정보를 모든 플레이어가 받아서 업데이트
+		int tmp;
+		game_update(sock, &tmp);
 	}
 }
 
@@ -101,9 +103,6 @@ int roll_and_go(int sock, int player_id){
 	set_dice_in_packet(&packet, dice_value, choice_value);
 	set_player_in_packet(&packet, player_id, y, x);
 
-	printf("dice: %d\n", (unsigned char)packet.dice);
-	printf("position: %hu\n", packet.position);
-
 	int type = PACKET;
 	packet_send(sock, (char*)&packet, &type);
 
@@ -111,7 +110,8 @@ int roll_and_go(int sock, int player_id){
 }
 
 int roll_dice(void){
-	return (rand()%6);
+	srand((unsigned int)time(NULL));
+	return (rand()%6) + 1;
 }
 
 int return_player_choice(int dice_value){
@@ -161,13 +161,17 @@ int game_update(int sock, int *player_id){
 	int type;
 	packet_recv(sock,(char*)&packet, &type);
 
-	printf("DICE_VALUE: %d\n", PLAYER_DICE_VALUE(packet.dice));
-	printf("SELECT_VALUE: %d\n", PLAYER_SELECT_VALUE(packet.dice));
-
 	// 여기에서부터 초기화 업데이트
 	// 	ui_update(player); // 여기에선 리턴값을 어떻게 설정할지 몰라서 if처리 안했음
 
 	*player_id = PLAYER_ID(packet.info);
+
+	printf("-----서버가 보내준 턴클라이언트 패킷 정보-----\n");
+	printf("-----아래 정보로 화면 업데이트 진행-----\n");
+	printf("POSITION: %d\n", PLAYER_POSITION(packet.position, *player_id));
+	printf("DICE_VALUE: %d\n", PLAYER_DICE_VALUE(packet.dice));
+	printf("SELECT_VALUE: %d\n\n", PLAYER_SELECT_VALUE(packet.dice));
+
 	return 0;	
 }
 
