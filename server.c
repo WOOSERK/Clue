@@ -227,9 +227,11 @@ int game_set_dice(Player_packet** player_packets, Player_packet* player_packet)
 	}
 
 	char dice_bit = PLAYER_DICE_VALUE(player_packet->dice);
-	// 선택값도 세팅해야될듯...?
-	for(int player_num = 0; player_num < PLAYER_CNT; player_num++)
+	char select_bit = PLAYER_SELECT_VALUE(player_packet->dice);
+	for(int player_num = 0; player_num < PLAYER_CNT; player_num++) {
 		player_packets[player_num]->dice = dice_bit;
+		player_packets[player_num]->dice |= select_bit;
+	}
 
 	return 0;
 }
