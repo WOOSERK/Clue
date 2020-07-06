@@ -72,7 +72,6 @@ int game_play(int sock, int player_id){
 		packet_recv(sock,(char*)&sig, &type);
 		if(sig == SIG_TURN){
 			printf("턴클라이언트: %d\n", player_id);
-			printf("%d 클라이언트가 sigturn신호를 받았습니다.\n", player_id);
 			roll_and_go(sock, player_id);
 		}
 
@@ -119,7 +118,7 @@ int return_player_choice(int dice_value){
 	// 선택값을 리턴하는 함수
 	int choice_value = -1;
 	while(1){
-		printf("나온값의 수: %d\n  이하의 수들중 하나의 값을 고르세요: ",dice_value);
+		printf("주사위값: %d\n선택값 입력: ", dice_value);
 		scanf("%d",&choice_value);
 		if(choice_value <= dice_value){
 			break;	
@@ -166,9 +165,11 @@ int game_update(int sock, int *player_id){
 
 	*player_id = PLAYER_ID(packet.info);
 
-	printf("-----서버가 보내준 턴클라이언트 패킷 정보-----\n");
+	printf("-----내 턴이 아닙니다...-----\n");
 	printf("-----아래 정보로 화면 업데이트 진행-----\n");
-	printf("POSITION: %d\n", PLAYER_POSITION(packet.position, *player_id));
+	for (int i = 0; i < PLAYER_CNT; i++) {
+		printf("%d's POSITION: %d\n", i, PLAYER_POSITION(packet.position, i));
+	}
 	printf("DICE_VALUE: %d\n", PLAYER_DICE_VALUE(packet.dice));
 	printf("SELECT_VALUE: %d\n\n", PLAYER_SELECT_VALUE(packet.dice));
 

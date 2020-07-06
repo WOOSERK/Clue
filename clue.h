@@ -10,6 +10,7 @@
 #define SIG_WAIT (2)
 #define SIG_INFR (3)
 #define SIG_DONE (4)
+#define PLAYER_CNT (2)
 
 #define PLAYER_ID(player_info) ((player_info) & ((unsigned char)0x3)) 
 #define PLAYER_PHASE(player_info) ((player_info) & ((unsigned char)0x4))

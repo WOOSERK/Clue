@@ -12,7 +12,6 @@
 #define CRIMINAL (2) // 범인
 #define SHUFFLE_CNT (10) // 섞는 횟수
 #define DISTRIBUTE_CARD_CNT (16) // 분배되는 카드 개수
-#define PLAYER_CNT (2) // 플레이어는 4명
 
 
 // 서버 여는(서버 소켓 만드는) 함수
