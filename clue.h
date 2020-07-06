@@ -19,8 +19,8 @@
 #define PLAYER_SELECT_VALUE(player_select) ((player_select) & ((unsigned char)0x7))
 #define PLAYER_DICE_VALUE(player_dice) ((player_dice) & ((unsigned char)0x38))
 #define PLAYER_INFER_SCENE(player_infer) ((player_infer) & ((unsigned short)0x7c00))
-#define PLAYER_INFER_WEAPON(player_infer) ((player_infer) & ((unsigned short)0x30e0))
-#define PLAYER_INFER_CRIMINAL(player_infer) ((player_infer) & ((unsigned short)0x1f))
+#define PLAYER_INFER_CRIMINAL(player_infer) ((player_infer) & ((unsigned short)0x3e0))
+#define PLAYER_INFER_WEAPON(player_infer) ((player_infer) & ((unsigned short)0x1f))
 
 
 typedef struct header
@@ -97,7 +97,7 @@ int packet_send(int sock, char* packet, int* type)
 // 성공하면 0, 실패하면 -1을 리턴. 인자 중 type은 반환에 사용
 int packet_recv(int sock, char* packet, int* type)
 {
-	if(packet == NULL || type == NULL)
+	if(packet == NULL)
 	{
 		fprintf(stderr, "packet_recv : argument is null\n");
 		return -1;
@@ -134,7 +134,6 @@ int packet_recv(int sock, char* packet, int* type)
 			break;
 	}
 
-	*type = header.type;
 	return 0;
 }
 
