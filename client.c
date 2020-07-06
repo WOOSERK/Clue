@@ -71,7 +71,7 @@ int game_play(int sock, int player_id){
 		int type;
 		packet_recv(sock,(char*)&sig, &type);
 		if(sig == SIG_TURN){
-			printf("턴클라이언트: %d\n", player_id);
+			printf("내 턴입니다!!\n");
 			roll_and_go(sock, player_id);
 		}
 
@@ -165,7 +165,6 @@ int game_update(int sock, int *player_id){
 
 	*player_id = PLAYER_ID(packet.info);
 
-	printf("-----내 턴이 아닙니다...-----\n");
 	printf("-----아래 정보로 화면 업데이트 진행-----\n");
 	for (int i = 0; i < PLAYER_CNT; i++) {
 		printf("%d's POSITION: %d\n", i, PLAYER_POSITION(packet.position, i));

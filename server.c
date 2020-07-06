@@ -433,7 +433,7 @@ int game_roll_and_go(Player_packet** player_packets, int *players)
 	game_route_packet(player_packets, players);
 
 	printf("\n-----턴플레이어에게 전달받은 패킷 출력-----\n");
-	printf("POSITION: %d\n", PLAYER_POSITION(player_packets[0]->position, turn_player));
+	printf("turn's POSITION: %d\n", PLAYER_POSITION(player_packets[0]->position, turn_player));
 	printf("DICE_VALUE: %d\n", PLAYER_DICE_VALUE(player_packets[0]->dice));
 	printf("SELECT_VALUE: %d\n", PLAYER_SELECT_VALUE(player_packets[0]->dice));
 
