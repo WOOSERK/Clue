@@ -150,9 +150,9 @@ int set_player_in_packet(Player_packet* packet, int player_id, int y, int x){
 
 int game_update(int sock, int *player_id){
 	
-	//서버로부터 초기화 패킷을 받아 게임을 초기화
-	//클라이언트는 자신패킷을 가지고 있지 않음 .
-	//따라서 매번 서버에서 패킷을 받아서 파싱해야 함.
+	// 서버로부터 초기화 패킷을 받아 게임을 초기화
+	// 클라이언트는 자신패킷을 가지고 있지 않음 .
+	// 따라서 매번 서버에서 패킷을 받아서 파싱해야 함.
 	Player_packet packet;
 
 	// 패킷을 받는 것을 함수로 해야함.
@@ -161,7 +161,7 @@ int game_update(int sock, int *player_id){
 	packet_recv(sock,(char*)&packet, &type);
 
 	// 여기에서부터 초기화 업데이트
-	// 	ui_update(player); // 여기에선 리턴값을 어떻게 설정할지 몰라서 if처리 안했음
+	// ui_update(player); // 여기에선 리턴값을 어떻게 설정할지 몰라서 if처리 안했음
 
 	*player_id = PLAYER_ID(packet.info);
 
