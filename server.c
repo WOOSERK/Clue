@@ -7,11 +7,11 @@
 #include <time.h>
 #include "clue.h"
 
-#define SCENE (1) // 현장
-#define CRIMINAL (2) // 범인
-#define WEAPON (3) // 흉기
-#define SHUFFLE_CNT (10) // 섞는 횟수
-#define DISTRIBUTE_CARD_CNT (16) // 분배되는 카드 개수
+#define SCENE (1) 					// 현장
+#define CRIMINAL (2) 				// 범인
+#define WEAPON (3) 					// 흉기
+#define SHUFFLE_CNT (10) 			// 섞는 횟수
+#define DISTRIBUTE_CARD_CNT (16) 	// 분배되는 카드 개수
 
 
 // 서버 여는(서버 소켓 만드는) 함수
@@ -178,15 +178,17 @@ int game_init_cards(Player_packet** player_packets, char* answer)
 // 다음 플레이어 턴으로 바꾸고 리턴하는 함수
 int game_set_turn(Player_packet** player_packets)
 {
-	if(player_packets == NULL)
-	{
+	if(player_packets == NULL) {
 		fprintf(stderr, "game_set_turn : argument is null\n");
 		return -1;
 	}
 
-	int player_num = 0;
+	char turn_player = PLAYER_TURN_PLAYER(player_packets[0]->info) >> 4;
+	turn_player = (turn_player+1) % PLAYER_CNT;
+	turn_player <<= 4;
+
 	char turn_bit = 0x8;
-	for(; player_num < PLAYER_CNT; player_num++)
+	for(int player_num = 0; player_num < PLAYER_CNT; player_num++)
 	{
 		// 해당 플레이어가 턴이었으면 다음 플레이어의 턴으로 변경
 		if(PLAYER_ISTURN(player_packets[player_num]->info))
@@ -195,8 +197,13 @@ int game_set_turn(Player_packet** player_packets)
 			player_packets[(player_num+1) % PLAYER_CNT]->info ^= turn_bit;
 			break;
 		}
-		else
+		else {
 			continue;
+		}
+	}
+
+	for(int player_num = 0; player_num < PLAYER_CNT; player_num++) {
+		player_packets[player_num]->info |= turn_player;
 	}
 
 	return 0;
@@ -371,6 +378,7 @@ Player_packet** game_init(int* players, char* answer)
 		return NULL;
 	}
 
+	// 서버가 관리할 플레이어들의 패킷 할당
 	Player_packet** player_packets = calloc(PLAYER_CNT, sizeof(Player_packet*));
 	if(player_packets == NULL)
 	{
@@ -394,6 +402,8 @@ Player_packet** game_init(int* players, char* answer)
 
 	game_init_cards(player_packets, answer);
 	game_init_players(player_packets);
+
+	// step 1) 
 	game_route_packet(player_packets, players);
 	return player_packets;
 }
@@ -420,22 +430,24 @@ char* game_set_answer()
 	return answer;
 }
 
-// signal_ : SIG_TURN or SIG_INFR
-int game_send_signal(int *players, int signal_, int turn_player) 
+// 턴플레이어에게는 target_signal을,
+// 다른 플레이어에게는 other_signal을 전송
+int game_send_signal(int *players, int target_signal, int other_signal, int turn_player) 
 {
 	// 턴 플레이어에게 헤더를 보낸 후 시작 신호를 보낸다.
 	// 나머지 플레이어에게 헤더를 보낸 후 대기 신호를 보낸다.
 	for(int player_num = 0; player_num < PLAYER_CNT; player_num++)
 	{
 		int type = SIGNAL;
+		int signal;
 		if(player_num == turn_player)
 		{
-			int signal = signal_;	
+			signal = target_signal;	
 			packet_send(players[player_num], (char*)&signal, &type);
 		}
 		else
 		{
-			int signal = SIG_WAIT;
+			signal = other_signal;
 			packet_send(players[player_num], (char*)&signal, &type);
 		}
 	}
@@ -461,7 +473,8 @@ int game_roll_and_go(Player_packet** player_packets, int *players)
 		}
 	}
 
-	game_send_signal(players, SIG_TURN, turn_player);
+	// 턴플에게 SIG_TURN을 나머지에게는 SIG_WAIT을 전송
+	game_send_signal(players, SIG_TURN, SIG_WAIT, turn_player);
 
 	// 턴 플레이어로부터 주사위+선택값, 위치값이 변경된 패킷을 받는다.
 	char buf[BUFSIZ];
@@ -540,14 +553,13 @@ int game_infer(Player_packet **player_packets, int *players, char *answer)
 	}
 	printf("turn: %d\n", turn_player);
 
-	// 턴플레이어에게 SIG_INFR 전송!!
-	// 나머지 플레이어에게는 SIG_WAIT 전송!!
-	game_send_signal(players, SIG_INFR, turn_player);
+	// 턴플레이어에게 SIG_INFR 전송
+	// 나머지 플레이어에게는 SIG_WAIT 전송
+	game_send_signal(players, SIG_INFR, SIG_WAIT, turn_player);
 
 	// 턴플의 추리패킷을 서버가 받음
 	Player_packet infer_packet;
 	packet_recv(players[turn_player], (char*)&infer_packet, NULL);
-	printf("turn's infer: %d\n", infer_packet.infer);
 
 	// 턴플이 진실의 방에서 추리를 했는지를 확인
 	unsigned short position_bit = PLAYER_POSITION(player_packets[turn_player]->position, turn_player);
@@ -573,88 +585,66 @@ int game_infer(Player_packet **player_packets, int *players, char *answer)
 		}
 	}
 
-	// 모든 플레이어의 패킷에 추리정보를 반영
+	// 모든 플레이어의 패킷에 추리정보를 세팅
 	game_set_infer(player_packets, player_packets[turn_player]);
 
-	// 턴플을 제외한 나머지 플레이어에게 추리정보가 담긴 패킷을 전송
-	for (int i = 1; i < PLAYER_CNT; i++) {
-		int target = (turn_player + i) % PLAYER_CNT;
-		int type = PACKET;
-		packet_send(players[target], (char *)player_packets[target], &type);
-	}
+	// 모든 플레이어에게 추리정보가 담긴 패킷을 전송
+	game_route_packet(player_packets, players);
 
-	int value = SIG_TURN;
+	// 턴플의 다음 순서부터 한 명씩 단서 요청(시그널을 보내는 방식으로 요청)
+	// 최초의 sig는 SIG_TURN으로 설정
+
+	int sig = SIG_TURN;
 	int clue_player;
 	for (int i = 1; i < PLAYER_CNT; i++) {
 		int target = (turn_player + i) % PLAYER_CNT;
 		int type = SIGNAL;	
-		packet_send(players[target], (char *)&value, &type);
+		packet_send(players[target], (char *)&sig, &type);
 
-		// 아직 아무도 단서를 내지 않음
-		if (value == SIG_TURN) {
-
+		// 플레이어는 단서가 있든 없든 SIG_TURN 요청이 오면 무조건 패킷을 보냄
+		if (sig == SIG_TURN) {
+			
 			// 단서 패킷을 받음
 			Player_packet packet;
 			packet_recv(players[target], (char *)&packet, NULL);
 
-			// 단서 유무 확인
-			// 단서를 냄
+			// 단서를 낸 경우 
 			if (packet.clue != 0) {
 				clue_player = target;
-				value = SIG_DONE;
+				sig = SIG_DONE;
 			}
 		}
 	}
+	
+	// 다른 플레이어 중 한명이 단서를 낸 경우        : sig => SIG_DONE
+	// 다른 플레이어 중 아무도 단서를 내지 않은 경우 : sig => SIG_TURN
 
-	// 결국 아무도 안내서 결국 턴플이 냄
-	if (value == SIG_TURN) {
-		printf("SIG_TURN\n");
-		int type = SIGNAL;
-		packet_send(players[turn_player], (char *)&value, &type);
+	//--------- 아래는 턴플레이어를 처리 ---------//
 
+	// sig가 SIG_TURN : 한바퀴 돌아서 턴 플레이어가 단서를 제출해야함
+	// sig가 SIG_DONE : 다른 플레이어가 단서를 제출함
+	int player = clue_player;
+	int type = SIGNAL;
+	packet_send(players[turn_player], (char *)&sig, &type);
+
+	// 다른 플레이어 중 아무도 단서를 내지 않은 경우
+	// 턴 플레이어가 단서를 제출해야함
+	if (sig == SIG_TURN) {
+
+		// 단서 세팅 패킷을 턴 플레이어로 변경
+		player = turn_player;
+
+		// 턴플레이어로부터 단서 정보를 기다림
 		Player_packet packet;
-
-		// 턴플레이어로부터 단서 정보를 기달
 		packet_recv(players[turn_player], (char *)&packet, NULL);
-		printf("턴플레이어가 보낸 자신의 카드 : %d\n", packet.clue);
-
-		// 만약 턴플이 보낸 단서가 0인 경우 답임. 처리해주어야함
-
-		// 모든 플레이어의 패킷에 턴플레이어의 단서 정보를 세팅
-		game_set_clue(player_packets, player_packets[turn_player]);
-
-		// 다른 플레이어들에게 턴플의 단서를 보여주기 전에 준비 신호(SIG_TURN_PLAYER)를 보냄
-		int sig = SIG_TURN_PLAYER;
-		for (int i = 1; i < PLAYER_CNT; i++) {
-			int target = (turn_player + i) % PLAYER_CNT;
-			int type = SIGNAL;	
-			packet_send(players[target], (char *)&sig, &type);
-		}
-
-		// 모든 플레이어에게 추리정보를 전송
-		game_route_packet(player_packets, players);
+		printf("턴플레이어가 보낸 단서 정보 : %d\n", packet.clue);
 	}
-	// 다른 플레이어가 단서를 제출한 경우
-	else {
-		printf("SIG_WAIT\n");
-		int sig = SIG_WAIT;
-		
-		// 모든 플레이어에게 SIG_WAIT을 제출
-		// 왜? 
-		for (int i = 0; i < PLAYER_CNT; i++) {
-			int target = (turn_player + i) % PLAYER_CNT;
-			int type = SIGNAL;	
-			packet_send(players[target], (char *)&sig, &type);
-		}
-		
-		int type = PACKET;
-		player_packets[turn_player]->clue = player_packets[clue_player]->clue;
 
-		// clue_player를 제외한 다른 나머지 패킷들은 clue비트가 0으로 세팅되어 있음
-		// 따라서 통일성있게 turn플레이어를 제외한 나머지 플레이어의 clue는 0으로 세팅
-		player_packets[clue_player]->clue = 0;
-		game_route_packet(player_packets, players);
-	}
+	// 모든 플레이어의 단서를 세팅
+	game_set_clue(player_packets, player_packets[player]);
+
+	// 모든 플레이어에게 단서가 담긴 패킷 전송
+	game_route_packet(player_packets, players);
 
 	return 0;
 }
@@ -693,7 +683,10 @@ int main()
 	// 게임이 끝날 때까지 반복
 	while(1)
 	{
-		game_roll_and_go(player_packets, players);
+		if (game_roll_and_go(player_packets, players) == -1) {
+			return -1;
+		}
+
 		if (game_infer(player_packets, players, answer) == 1) {
 			break;
 		}

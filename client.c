@@ -74,13 +74,16 @@ int game_play(int sock, int player_id){
 		int sig;
 		int type;
 		packet_recv(sock,(char*)&sig, &type);
+
+		// 턴플레이어의 경우
 		if(sig == SIG_TURN){
 			printf("내 턴입니다!!\n");
 			roll_and_go(sock, player_id);
 		}
 
-		// 턴 플레이어의 정보를 모든 플레이어가 받아서 업데이트
+		// 턴 플레이어의 roll_and_go 정보를 모든 플레이어가 받아서 업데이트
 		game_update(sock);
+
 		game_infer(sock, player_id);
 	}
 	return 0;
@@ -95,6 +98,10 @@ int roll_and_go(int sock, int player_id){
 	// 주사위값 얻어냄
 	dice_value = roll_dice();
 
+	// To. 경안
+	// 경안아. 선택값과 위치값을 UI에서 선택해야한단다.
+	// 아래 함수들을 참고하렴
+
 	// 선택값 얻어냄
 	choice_value = return_player_choice(dice_value);
 
@@ -108,6 +115,8 @@ int roll_and_go(int sock, int player_id){
 	set_player_in_packet(&packet, player_id, y, x);
 
 	int type = PACKET;
+
+	// 서버에게 roll_and_go 정보를 전송
 	packet_send(sock, (char*)&packet, &type);
 
 	return 0;
@@ -156,8 +165,11 @@ int set_player_in_packet(Player_packet* packet, int player_id, int y, int x){
 int game_init(int sock, int *player_id) {
 
 	Player_packet packet;
+
+	// step 1)
 	packet_recv(sock,(char*)&packet, NULL);
-	// ui_update(player); // 여기에선 리턴값을 어떻게 설정할지 몰라서 if처리 안했음
+	
+	// ui_update(player); 
 
 	*player_id = PLAYER_ID(packet.info);
 
@@ -177,7 +189,11 @@ int game_update(int sock){
 	packet_recv(sock,(char*)&packet, &type);
 
 	// 여기에서부터 초기화 업데이트
-	// ui_update(player); // 여기에선 리턴값을 어떻게 설정할지 몰라서 if처리 안했음
+
+	// To. 경안
+	// 업데이트 잘하렴
+	// 우리는 너를 믿는단다
+	// ui_update(player); 
 
 	printf("-----아래 정보로 화면 업데이트 진행-----\n");
 	for (int i = 0; i < PLAYER_CNT; i++) {
@@ -193,6 +209,8 @@ int game_infer(int sock, int player_id) {
 	
 	int sig;
 	int type_;
+
+	// 턴플은 SIG_INFR, 나머지는 SIG_WAIT을 기다림
 	packet_recv(sock, (char*)&sig, NULL);
 
 	// 턴플레이어가 추리신호를 받은 경우
@@ -203,7 +221,12 @@ int game_infer(int sock, int player_id) {
 		// 범인, 흉기(장소는 이미 그 자리로 이동을 했으므로 자동 카운트)를 
 		// 정하는 함수를 만든뒤 패킷에 담는다. 그런다음에 packet_send를 한다.
 		Player_packet packet;
-	
+
+		// To. 경안
+		// 경안아. 잘하자
+		// 경안아. 장소는 블락하고 나머지는 선택할 수 있게 해라
+		// 진실의 방이 아닐 경우에는 현장을 고를 때 커서를 고정시키렴
+
 		// 추리 정보 선택
 		// 이부분은 윈도우와의 연계가 필요함 일단은 예비로 설정.
 		type_ = PACKET;
@@ -213,6 +236,9 @@ int game_infer(int sock, int player_id) {
 		scanf("%hd", &crime);
 		printf("무기를 선택하세요(0~6): ");
 		scanf("%hd", &weapon);
+	
+		// 추리정보를 패킷에 잘 담으렴
+		// 아래 두줄은 변경해야됨(경안이가)
 		unsigned short place =(unsigned short)(position_exchanger(packet.position, packet.info));
 		packet.infer = (place << 10) | ((crime | 0x0010) << 5) | (weapon | 0x0018); 
 
@@ -222,7 +248,7 @@ int game_infer(int sock, int player_id) {
 		}
 
 		// 서버로부터 전송되는 단서 신호를 대기
-		// 서버는 단서를 보내기 전 반드시 신호를 먼저 보내야함
+		// SIG_TURN or SIG_WAIT
 		if (packet_recv(sock, (char*)&sig, NULL) == -1){
 			return -1;
 		}
@@ -328,7 +354,6 @@ int game_infer(int sock, int player_id) {
 		// 단서 제출 턴 시그널을 대기함(SIG_TURN or SIG_WAIT)
 		packet_recv(sock, (char*)&sig, NULL);
 
-
 		// 내가 단서를 제출할 턴임
 		// 만약 SIG_WAIT이 왔다면 누가 이미 냈으므로 너는 넘어가라는 의미
 		if(sig == SIG_TURN){
@@ -360,7 +385,7 @@ int game_infer(int sock, int player_id) {
 					break;
 
 				//나는 단서가 없는 경우
-				if(i == 3){ 
+				if(i == 3) { 
 					printf("나는 단서가 없습니다.\n");
 					type_ = PACKET;
 					packet.clue = 0x00;
@@ -369,13 +394,17 @@ int game_infer(int sock, int player_id) {
 					if(packet_send(sock, (char*)&packet, &type_) == -1){
 						return -1;
 					}
+
 					// 단서를 턴플이 냈는지 
-					// 다른 플레이어가 턴플에게 전달했는지를 
-					// 구분하는 시그널을 받음
+					// 다른 플레이어가 턴플에게 전달했는지를 구분하는 시그널을 받음
+					// SIG_TURN_PLAYER or SIG_WAIT
 					if(packet_recv(sock, (char*)&sig, NULL) == -1){
 						return -1;
 					}
-					// SIG_TURN_PLYAER가 옴
+
+					// 누가 누구한테 단서를 보냈는지를 출력하기 위한 시그널
+					// 일단 SIG_TURN_PLYAER 신호가 옴
+
 					// 단서를 턴플이 낸 경우
 					if(sig == SIG_TURN_PLAYER){
 
@@ -386,7 +415,14 @@ int game_infer(int sock, int player_id) {
 
 						// 해당 패킷 파싱 여기서 해야됨
 
-						printf("턴클로부터 공개적으로 모두에게 뿌린 단서는 ... 입니다.\n");
+						// 결국 턴플까지 못낸 경우
+						if (packet.clue == 0) {
+							printf("아무도 단서를 가지고 있지 않습니다.\n");
+						}
+						// 턴플은 단서를 낸 경우
+						else {
+							printf("턴클로부터 공개적으로 모두에게 뿌린 단서는 ... 입니다.\n");
+						}
 					}
 					// SIG_WAIT이 옴
 					// 단서를 다른 플레이어가 턴플에게 전송한 경우
@@ -443,10 +479,12 @@ int game_infer(int sock, int player_id) {
 			}
 			return 0;
 		}
+		// SIG_DONE 받음
 		// 이미 단서는 넘겨졌으니 그냥 넘어가라.
 		else{ 
 			printf("이미 누가 단서를 제출했습니다. 넘어갑니다.\n");
 			// sig널 받고 패킷을 받아서 누가 턴플에게 단서를 줬는지 파싱해야함. 
+			// SIG_TURN_PLAYER or SIG_WAIT
 			if(packet_recv(sock, &sig, NULL) == -1){
 				return -1;
 			}
@@ -455,11 +493,17 @@ int game_infer(int sock, int player_id) {
 				if(packet_recv(sock, &packet, NULL) == -1){
 					return -1;
 				}
-				int player_who_gave_clue = packet.clue & 0x3;
+				int player_who_gave_clue = PLAYER_CLUE_PLAYER(packet.clue);
 				int player_who_get_clue = PLAYER_TURN_PLAYER(packet.info);
-				//그리고 턴플레이어도 빼와서 히스토리나 출력에
+				// 그리고 턴플레이어도 빼와서 히스토리나 출력에
 				// 누가 턴플레이어게 줫는지도 알려줘야 한다. 이부분은 내일 같이 상의.
-			}		
+				
+				// To. 경안
+				// 우리는 할만큼 했다.
+				// 쉽지 않은 길이었다.
+				// 이제 너의 이야기다.
+				// 자, 펼쳐라
+			}
 		}
 	}
 }
