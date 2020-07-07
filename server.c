@@ -538,6 +538,7 @@ int game_infer(Player_packet **player_packets, int *players, char *answer)
 			break;
 		}
 	}
+	printf("turn: %d\n", turn_player);
 
 	// 턴플레이어에게 SIG_INFR 전송!!
 	// 나머지 플레이어에게는 SIG_WAIT 전송!!
@@ -546,6 +547,7 @@ int game_infer(Player_packet **player_packets, int *players, char *answer)
 	// 턴플의 추리패킷을 서버가 받음
 	Player_packet infer_packet;
 	packet_recv(players[turn_player], (char*)&infer_packet, NULL);
+	printf("turn's infer: %d\n", infer_packet.infer);
 
 	// 턴플이 진실의 방에서 추리를 했는지를 확인
 	unsigned short position_bit = PLAYER_POSITION(player_packets[turn_player]->position, turn_player);
@@ -575,7 +577,7 @@ int game_infer(Player_packet **player_packets, int *players, char *answer)
 	game_set_infer(player_packets, player_packets[turn_player]);
 
 	// 턴플을 제외한 나머지 플레이어에게 추리정보가 담긴 패킷을 전송
-	for (int i = 0; i < PLAYER_CNT; i++) {
+	for (int i = 1; i < PLAYER_CNT; i++) {
 		int target = (turn_player + i) % PLAYER_CNT;
 		int type = PACKET;
 		packet_send(players[target], (char *)player_packets[target], &type);
@@ -588,7 +590,7 @@ int game_infer(Player_packet **player_packets, int *players, char *answer)
 		int type = SIGNAL;	
 		packet_send(players[target], (char *)&value, &type);
 
-		// 아직 아무도 단서를 내지 않았다...
+		// 아직 아무도 단서를 내지 않음
 		if (value == SIG_TURN) {
 
 			// 단서 패킷을 받음
@@ -604,8 +606,9 @@ int game_infer(Player_packet **player_packets, int *players, char *answer)
 		}
 	}
 
-	// 결국 아무도 안내서 결국 턴플이 내넹
+	// 결국 아무도 안내서 결국 턴플이 냄
 	if (value == SIG_TURN) {
+		printf("SIG_TURN\n");
 		int type = SIGNAL;
 		packet_send(players[turn_player], (char *)&value, &type);
 
@@ -633,8 +636,12 @@ int game_infer(Player_packet **player_packets, int *players, char *answer)
 	}
 	// 다른 플레이어가 단서를 제출한 경우
 	else {
+		printf("SIG_WAIT\n");
 		int sig = SIG_WAIT;
-		for (int i = 1; i < PLAYER_CNT; i++) {
+		
+		// 모든 플레이어에게 SIG_WAIT을 제출
+		// 왜? 
+		for (int i = 0; i < PLAYER_CNT; i++) {
 			int target = (turn_player + i) % PLAYER_CNT;
 			int type = SIGNAL;	
 			packet_send(players[target], (char *)&sig, &type);
@@ -642,6 +649,9 @@ int game_infer(Player_packet **player_packets, int *players, char *answer)
 		
 		int type = PACKET;
 		player_packets[turn_player]->clue = player_packets[clue_player]->clue;
+
+		// clue_player를 제외한 다른 나머지 패킷들은 clue비트가 0으로 세팅되어 있음
+		// 따라서 통일성있게 turn플레이어를 제외한 나머지 플레이어의 clue는 0으로 세팅
 		player_packets[clue_player]->clue = 0;
 		game_route_packet(player_packets, players);
 	}
