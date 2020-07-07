@@ -431,9 +431,9 @@ int game_infer(int sock, int player_id) {
 							return -1;
 						}
 
+						// 이제 패킷을 받아야 함
 						// 시그널을 먼저 받아야하나?
-						// 뭔가 받음
-						packet_recv();
+						// packet_recv();
 
 						// 문자열 출력
 						printf("*번 플레이어가 턴플레이어(*번)에게 단서를 보여주었습니다\n");
@@ -447,18 +447,16 @@ int game_infer(int sock, int player_id) {
 		else{ 
 			printf("이미 누가 단서를 제출했습니다. 넘어갑니다.\n");
 			// sig널 받고 패킷을 받아서 누가 턴플에게 단서를 줬는지 파싱해야함. 
-			type_ = SIGNAL;
-			if(packet_recv(sock, &sig, &type_) == -1){
+			if(packet_recv(sock, &sig, NULL) == -1){
 				return -1;
 			}
 			if(sig == SIG_WAIT){
 				// 이 부분은 다시 생각해봐야 함.(왜 sigturn만 오는데 꼭 받아야 하는지.)
-				type_ = PACKET;
-				if(packet_recv(sock, &packet, &type_) == -1){
+				if(packet_recv(sock, &packet, NULL) == -1){
 					return -1;
 				}
 				int player_who_gave_clue = packet.clue & 0x3;
-				int player_who_get_clue = PLAYER_TURNPLAYER(packet.info);
+				int player_who_get_clue = PLAYER_TURN_PLAYER(packet.info);
 				//그리고 턴플레이어도 빼와서 히스토리나 출력에
 				// 누가 턴플레이어게 줫는지도 알려줘야 한다. 이부분은 내일 같이 상의.
 			}		
