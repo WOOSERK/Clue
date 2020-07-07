@@ -13,7 +13,8 @@
 
 
 int client_connect(void);
-int game_update(int sock, int *player_id);
+int game_init(int sock, int *player_id);
+int game_update(int sock);
 int game_play(int sock, int player_id);
 // int ui_update(Player_packet* );
 // int change_player_position(WINDOW* window, Player_packet* player_pakcet);
@@ -26,7 +27,7 @@ int return_player_position(int choice, int* y, int* x);
 int set_dice_in_packet(Player_packet* packet, int dice_value, int choice_value);
 int set_player_in_packet(Player_packet* packet, int player_id, int y, int x);
 int sig_recv(int sock);
-int game_infer(int sock);
+int game_infer(int sock, int player_id);
 char position_exchanger(short position, char info);
 int clue_you_got(char* clue);
 
@@ -36,7 +37,7 @@ int main(){
 	int sock = client_connect();
 
 	int player_id;
-	if(game_update(sock, &player_id) == -1){
+	if(game_init(sock, &player_id) == -1) {
 		return -1;
 	}
 
@@ -79,11 +80,10 @@ int game_play(int sock, int player_id){
 		}
 
 		// 턴 플레이어의 정보를 모든 플레이어가 받아서 업데이트
-		int tmp;
-		game_update(sock, &tmp);
-
-		game_infer(sock);
+		game_update(sock);
+		game_infer(sock, player_id);
 	}
+	return 0;
 }
 
 int roll_and_go(int sock, int player_id){
@@ -153,7 +153,18 @@ int set_player_in_packet(Player_packet* packet, int player_id, int y, int x){
 	return 0;
 }
 
-int game_update(int sock, int *player_id){
+int game_init(int sock, int *player_id) {
+
+	Player_packet packet;
+	packet_recv(sock,(char*)&packet, NULL);
+	// ui_update(player); // 여기에선 리턴값을 어떻게 설정할지 몰라서 if처리 안했음
+
+	*player_id = PLAYER_ID(packet.info);
+
+	return 0;
+}
+
+int game_update(int sock){
 	
 	// 서버로부터 초기화 패킷을 받아 게임을 초기화
 	// 클라이언트는 자신패킷을 가지고 있지 않음 .
@@ -168,8 +179,6 @@ int game_update(int sock, int *player_id){
 	// 여기에서부터 초기화 업데이트
 	// ui_update(player); // 여기에선 리턴값을 어떻게 설정할지 몰라서 if처리 안했음
 
-	*player_id = PLAYER_ID(packet.info);
-
 	printf("-----아래 정보로 화면 업데이트 진행-----\n");
 	for (int i = 0; i < PLAYER_CNT; i++) {
 		printf("%d's POSITION: %d\n", i, PLAYER_POSITION(packet.position, i));
@@ -180,7 +189,7 @@ int game_update(int sock, int *player_id){
 	return 0;	
 }
 
-int game_infer(int sock) {
+int game_infer(int sock, int player_id) {
 	
 	int sig;
 	int type_;
@@ -412,11 +421,12 @@ int game_infer(int sock) {
 					}
 					else {
 						type_= PACKET;
+
+						// shift 해야됨
 						packet.clue = my_cards[select_clue-1];
 
 						// 서버에게 단서가 들어있는 패킷 전송
-						// 이 때, 서버는 라우트 할 때, 나의 식별번호를 clue의 우측에서 4비트에 담아서
-						// 라우트 해주어야함(클라이언트가 자신의 번호는 알수 없으므로)
+						// 나의 식별번호를 clue의 우측에서 4비트에 담아서 서버에 전송
 						if(packet_send(sock, (char*)&packet, &type_) == -1){
 							return -1;
 						}
