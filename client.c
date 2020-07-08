@@ -28,13 +28,17 @@ int set_dice_in_packet(Player_packet* packet, int dice_value, int choice_value);
 int set_player_in_packet(Player_packet* packet, int player_id, int y, int x);
 int sig_recv(int sock);
 int game_infer(int sock, int player_id);
-char position_exchanger(short position, char info);
 int clue_you_got(char* clue);
+int send_clue(int sock, Player_packet *packet);
+int print_clue(Player_packet *packet);
 
 
 int main(){
 	
 	int sock = client_connect();
+	if (sock == -1) {
+		return -1;
+	}
 
 	int player_id;
 	if(game_init(sock, &player_id) == -1) {
@@ -133,7 +137,7 @@ int return_player_choice(int dice_value){
 	int choice_value = -1;
 	while(1){
 		printf("주사위값: %d\n선택값 입력: ", dice_value);
-		scanf("%d",&choice_value);
+		scanf("%d", &choice_value);
 		if(choice_value <= dice_value){
 			break;	
 		}
@@ -205,33 +209,144 @@ int game_update(int sock){
 	return 0;	
 }
 
+
+// packet변수에 서버로부터 라우팅된 단서 패킷이 세팅됨
+int send_clue(int sock, Player_packet *packet) {
+
+	unsigned short scene = PLAYER_INFER_SCENE(packet->infer) >> 10;
+	unsigned short crime = PLAYER_INFER_CRIMINAL(packet->infer) >> 5;
+	unsigned short weapon = PLAYER_INFER_WEAPON(packet->infer);
+
+	printf("scene(send_clue): %hd\n", scene);
+	printf("crime(send_clue): %hd\n", crime);
+	printf("weapon(send_clue): %hd\n", weapon);
+
+	if (packet == NULL) {
+		fprintf(stderr, "send_clue : argument is null\n");
+		return -1;
+	}
+
+	printf("packet_clue_before: %hd\n", packet->clue);
+	// 자신이 가지고 있는 카드가 추리 정보에 있을 경우, my_cards 배열에 넣음
+	char my_cards[3] = {0,};
+	int cnt = 0;
+	for (int i = 0; i < sizeof(my_cards); i++){
+		printf("packet->cards[%d]: %d\n", i, packet->cards[i]);
+		if (scene == packet->cards[i]) {
+			my_cards[cnt++] = packet->cards[i];		
+		}
+		else if (crime == packet->cards[i]) {
+			my_cards[cnt++] = packet->cards[i];		
+		}
+		else if (weapon == packet->cards[i]) {
+			my_cards[cnt++] = packet->cards[i];		
+		}
+	}
+
+	printf("-----DEBUG START-----\n");
+	for (int i = 0; i < cnt; i++) {
+		printf("%d ", my_cards[i]);
+	}
+	printf("\n-----DEBUG END-----\n");
+
+	// 플레이어가 단서가 없는 경우
+	if (cnt == 0) {
+		// 단서 비트를 0으로 세팅
+		printf("단서가 없습니다.\n");
+		packet->clue = 0x0;
+	}
+	// 플레이어가 단서가 있는 경우
+	else {
+		int select_clue;
+		printf("\n무엇을 단서로 제출하시겠습니까? : ");
+		scanf("%d", &select_clue);
+		packet->clue = my_cards[select_clue-1];
+	}
+
+	// 플레이어가 자기 카드 한장 또는 0을 서버에 전송 
+	printf("packet_clue: %hd\n", packet->clue);
+	int type = PACKET;
+	if (packet_send(sock, (char*)packet, &type) == -1){
+		return -1;
+	}
+
+	// 서버의 단서 정보 라우트를 기다림
+	// 결국 받아서 packet에 저장함
+	if (packet_recv(sock, (char*)packet, NULL) == -1) {
+		return -1;
+	}
+
+	return 0;
+}
+
+// 단서 정보를 플레이어 화면에 출력하는 함수
+int print_clue(Player_packet *packet) {
+	
+	if (packet == NULL) {
+		fprintf(stderr, "send_clue : argument is null\n");
+		return -1;
+	}
+
+	int player_id = PLAYER_ID(packet->info);
+	int turn_player_id = PLAYER_TURN_PLAYER(packet->info) >> 4;
+	int clue_player_id = PLAYER_CLUE_PLAYER(packet->clue) >> 5;
+	char clue = PLAYER_CLUE(packet->clue);
+
+	// 아무도 단서를 내지 않은 경우
+	if (packet->clue == 0) {
+		printf("아무도 단서를 내지 않음!!\n");
+	}
+	// 턴플레이어가 아닌 다른 플레이어가 단서를 제출한 경우
+	else if (clue_player_id != turn_player_id) {
+		if (player_id == turn_player_id) {
+			clue_you_got(&(packet->clue));
+		}
+		else {
+			printf("%d 플레이어가 %d 플레이어에게 단서를 제출함!!\n", clue_player_id, turn_player_id);
+		}
+	}
+	// 턴플레이어가 단서를 제출한 경우
+	else {
+		printf("%d(턴플레이어)가 자신의 카드 %d을 제출!!\n", turn_player_id, clue);
+	}
+
+	return 0;
+}
+
 int game_infer(int sock, int player_id) {
 	
 	int sig;
-	int type_;
+	int type;
 
 	// 턴플은 SIG_INFR, 나머지는 SIG_WAIT을 기다림
 	packet_recv(sock, (char*)&sig, NULL);
 
-	// 턴플레이어가 추리신호를 받은 경우
-	if(sig == SIG_INFR){
+	// 플레이어가 SIG_INFR를 받은 경우 : 턴플레이어
+	if (sig == SIG_INFR) {
 		
 		printf("siginfr을 받았습니다. 추리하세요.\n");
 		
 		// 범인, 흉기(장소는 이미 그 자리로 이동을 했으므로 자동 카운트)를 
-		// 정하는 함수를 만든뒤 패킷에 담는다. 그런다음에 packet_send를 한다.
-		Player_packet packet;
+		// 정하는 함수를 만든뒤 패킷에 담는다. 그런 다음에 packet_send를 한다.
+		Player_packet packet = {0,};
 
 		// To. 경안
-		// 경안아. 잘하자
+		// 경환아. 우리다.
+		// 거기는 어떠니. 
+		// 이곳은 슬슬 싸늘하다.
+		// 너의 시끄러운 입이 그립구나.
+		// 혹시 이 글을 읽고 있다면 일단 나가라
 		// 경안아. 장소는 블락하고 나머지는 선택할 수 있게 해라
 		// 진실의 방이 아닐 경우에는 현장을 고를 때 커서를 고정시키렴
 
 		// 추리 정보 선택
 		// 이부분은 윈도우와의 연계가 필요함 일단은 예비로 설정.
-		type_ = PACKET;
+		// UI 처리
 		unsigned short crime;
 		unsigned short weapon;
+		unsigned short scene;
+		printf("현장을 선택하세요(0-5): ");
+		scanf("%hd", &scene);
 		printf("범인을 선택하세요(0~5): ");
 		scanf("%hd", &crime);
 		printf("무기를 선택하세요(0~6): ");
@@ -239,290 +354,96 @@ int game_infer(int sock, int player_id) {
 	
 		// 추리정보를 패킷에 잘 담으렴
 		// 아래 두줄은 변경해야됨(경안이가)
-		unsigned short place =(unsigned short)(position_exchanger(packet.position, packet.info));
-		packet.infer = (place << 10) | ((crime | 0x0010) << 5) | (weapon | 0x0018); 
+		// unsigned short place =(unsigned short)(position_exchanger(packet.position, packet.info));
 
-		// 자신의 추리 정보 서버에 전송
-		if (packet_send(sock, (char*)&packet, &type_) == -1){
+		packet.infer = ((scene | 0x0008) << 10) | ((crime | 0x0010) << 5) | (weapon | 0x0018); 
+		printf("packet.infer: %hu\n", packet.infer);
+
+		// 자신의 추리 정보를 서버에 전송
+		type = PACKET;
+		if (packet_send(sock, (char*)&packet, &type) == -1){
+			return -1;
+		}
+
+		// 서버로부터 라우팅된 추리정보가 담긴 턴플레이어(나)의 패킷을 받음
+		if (packet_recv(sock, (char*)&packet, NULL) == -1) {
 			return -1;
 		}
 
 		// 서버로부터 전송되는 단서 신호를 대기
-		// SIG_TURN or SIG_WAIT
+		// SIG_TURN or SIG_DONE
 		if (packet_recv(sock, (char*)&sig, NULL) == -1){
 			return -1;
 		}
 
+		// SIG_DONE이 전송됨
 		// 턴플을 제외한 나머지 플레이어 중 하나가 단서를 제출한 경우
-		if (sig == SIG_WAIT){
+		if (sig == SIG_DONE){
+			printf("누군가 단서를 냈습니다. 턴플레이어는 단서를 받으세요\n");
 
-			// 서버로부터 단서를 받음
-			if(packet_recv(sock, (char*)&packet, &type_) == -1){
+			// 서버로부터 단서 패킷을 받음
+			if(packet_recv(sock, (char*)&packet, NULL) == -1){
 				return -1;
 			}
 
-			//이 부분도 클루를 보여주는 ui와 연동
-			printf("단서는 %d 입니다.\n", packet.clue);
-
-			// 여기는 packet.clue와 단서와의 매핑을 해야함.
-			clue_you_got(&(packet.clue));			
-			return 0;
+			// UI 처리(단서 정보를 플레이어 화면에 출력)
+			print_clue(&packet);
 		}
-		
-		// 아무도 단서를 내지 않아서 턴플이 내야되는 경우
-		else{ 
-			printf("아무도 없네요... 니가 내세요.\n");
-			type_ = PACKET;
-			char my_cards[3]= {0,};
-			for(int i =0; i< 4; i++){
-				if(crime  == packet.cards[i]){
-					my_cards[i] = packet.cards[i];		
-				}
-				else if((weapon >> 5) == packet.cards[i]){
-					my_cards[i] = packet.cards[i];
-				}
-				else if(position_exchanger(packet.position, packet.info) == packet.cards[i]){
-					//현재 나의 아이디를 뽑아와서 나의 포지션을 추출해낸후, 
-					// 그 포지션(즉 내가 있는 장소)와 내가 갖고있는 카드와 비교한다.
-					// 있다면 my_cards에 포함시킨다.
-					my_cards[i] = packet.cards[i]; 
-				}
-				// 자기 카드 중에서 단서 후보카드만 보여줌
-				printf("%d: %d \t",i+1, (int)my_cards[i]);
-			}
-		
-			// 단서가 없으면 해당 for문에서 game_infer함수 종료
-			// 단서가 있으면 해당 for문을 탈출함
-			for(int i = 0; i < 4; i++){
-				if(my_cards[i] != 0)
-					break;
-
-				// 나(턴플)도 단서가 없는 경우
-				if(i == 3){ 
-					printf("나 또한 단서가 없습니다.\n");
-					type_ = PACKET;
-					packet.clue = 0x00;
-
-					// 단서 비트를 0으로 세팅해서 서버에 전송
-					if(packet_send(sock, (char*)&packet, &type_) == -1){
-						return -1;
-					}
-					return 0;
-				}
-			}
-			
-			// 나(턴클)한테 단서가 있는 경우
-			while(1){
-				int select_clue;
-				printf("\n무엇을 단서로 제출하시겠습니까? : ");
-				scanf("%d", &select_clue);
-				if(select_clue <1 || select_clue > 4 ) {
-					printf("다시 입력하세요 없는 번호입니다.\n");
-				}
-				else {
-					if(my_cards[select_clue-1] == 0)
-						printf("없는 카드입니다 다시 입력하세요.\n");
-					else{
-						type_= PACKET;
-						packet.clue = my_cards[select_clue-1];
-						
-						// 아무도 단서를 안냈으므로 턴클이 자기 카드 한장을 서버에 전송 
-						if(packet_send(sock, (char*)&packet, &type_) == -1){
-							return -1;
-						}
-						// 서버의 단서 정보 라우트를 기다림
-						packet_recv(sock, (char*)&packet, NULL);
-
-						// 서버에게 받은 정보 업데이트 
-						// ui_update()
-						break;
-					}
-				}
-			}
-			return 0;
+		// SIG_TURN 이 전송됨
+		// 아무도 단서를 내지 않아 턴플이 단서를 내야되는 경우
+		else { 
+			printf("턴플레이어가 단서를 내야 됩니다\n");
+			send_clue(sock, &packet);
+			print_clue(&packet);
 		}
+		return 0;
 	}
-	else{  //턴이 아닌 애들 
-		printf("해당 턴플레이어가 아닙니다...\n");
-		Player_packet packet;
 
-		// 서버에서 전송되는 추리패킷을 기다림 
-		if(packet_recv(sock, (char*)&packet, NULL) == -1){
+	// 플레이어가 SIG_WAIT을 받은 경우 : 턴플레이어가 아닌 다른 플레이어
+	else{   
+		printf("나는 턴플레이어가 아닙니다...\n");
+		Player_packet packet = {0,};
+
+		// 서버로부터 라우팅된 추리정보가 담긴 턴플레이어의 패킷을 받음
+		if (packet_recv(sock, (char*)&packet, NULL) == -1){
 			return -1;
 		}
 
-		// 단서 제출 턴 시그널을 대기함(SIG_TURN or SIG_WAIT)
-		packet_recv(sock, (char*)&sig, NULL);
+		// 서버로부터 전송되는 단서 신호를 대기
+		// SIG_TURN or SIG_DONE
+		if (packet_recv(sock, (char*)&sig, NULL) == -1) {
+			return -1;
+		}
 
-		// 내가 단서를 제출할 턴임
-		// 만약 SIG_WAIT이 왔다면 누가 이미 냈으므로 너는 넘어가라는 의미
+		// 만약 SIG_TURN이 왔다면 내가 단서를 서버에 제출해야함
+		// 만약 SIG_DONE이 왔다면 누가 이미 냈으므로 너는 넘어가라는 의미
+
+		// SIG_TURN 을 받음
 		if(sig == SIG_TURN){
-			unsigned short crime = PLAYER_INFER_CRIMINAL(packet.infer);
-			unsigned short weapon = PLAYER_INFER_WEAPON(packet.infer);
-			unsigned short place = PLAYER_INFER_SCENE(packet.infer);
-
-			// 서버로부터 받은 패킷으로부터 턴클이 추리한 내용을 저장한다.
-			char my_cards[3]= {0,};
-			for(int i =0; i< 4; i++){
-				if((char)crime  == packet.cards[i]){
-					my_cards[i] = packet.cards[i];		
-				}
-				else if((char)(weapon >> 5) == packet.cards[i]){
-					my_cards[i] = packet.cards[i];
-					return 0;	
-				}
-				else if(position_exchanger(packet.position, packet.info) == packet.cards[i]){
-					my_cards[i] = packet.cards[i]; 
-				}
-			}
-
-			// 단서가 없으면 해당 for문에서 game_infer함수 종료
-			// 단서가 있으면 해당 for문을 탈출함
-			for(int i = 0; i < 4; i++){
-
-				// 단서가 있으면 for문 바로 탈출
-				if(my_cards[i] != 0)
-					break;
-
-				//나는 단서가 없는 경우
-				if(i == 3) { 
-					printf("나는 단서가 없습니다.\n");
-					type_ = PACKET;
-					packet.clue = 0x00;
-
-					// 단서가 없어도 단서 정보가 담긴 패킷을 전송은 해야됨
-					if(packet_send(sock, (char*)&packet, &type_) == -1){
-						return -1;
-					}
-
-					// 단서를 턴플이 냈는지 
-					// 다른 플레이어가 턴플에게 전달했는지를 구분하는 시그널을 받음
-					// SIG_TURN_PLAYER or SIG_WAIT
-					if(packet_recv(sock, (char*)&sig, NULL) == -1){
-						return -1;
-					}
-
-					// 누가 누구한테 단서를 보냈는지를 출력하기 위한 시그널
-					// 일단 SIG_TURN_PLYAER 신호가 옴
-
-					// 단서를 턴플이 낸 경우
-					if(sig == SIG_TURN_PLAYER){
-
-						// 턴플이 제출한 단서를 받는것을 대기
-						if(packet_recv(sock, (char*)&packet, &type_) == -1){
-							return -1;
-						} 
-
-						// 해당 패킷 파싱 여기서 해야됨
-
-						// 결국 턴플까지 못낸 경우
-						if (packet.clue == 0) {
-							printf("아무도 단서를 가지고 있지 않습니다.\n");
-						}
-						// 턴플은 단서를 낸 경우
-						else {
-							printf("턴클로부터 공개적으로 모두에게 뿌린 단서는 ... 입니다.\n");
-						}
-					}
-					// SIG_WAIT이 옴
-					// 단서를 다른 플레이어가 턴플에게 전송한 경우
-					else{
-						if(packet_recv(sock, (char*)&packet, &type_) == -1){
-							return -1;
-						}
-						// 누가 보냈는지는 packet.clue에다가 써서 넣어놨고, 
-						// 클루의 모양은 왼쪽부터 5비트가 단서의 내용이고
-						// 그 다음의 2비트가 누가 냈는지 식별하기 위함이다.
-
-						// 턴플레이어가 누군지는 packet.info에다가 써서 넣어놨고,
-						// 왼쪽부터 4비트가 턴플레이어의 번호임
-						printf("*플레이어가 턴플레이어(*번)에게 단서를 보여주었습니다\n");
-					}
-					return 0;
-				}
-			}
-
-			// 단서가 있음
-			// 자신의 단서를 제출
-			while(1){
-				int select_clue;
-				printf("\n무엇을 단서로 제출하시겠습니까? : ");
-				scanf("%d", &select_clue);
-				if(select_clue <1 || select_clue > 4) {
-					printf("다시 입력하세요 없는 번호입니다.\n");
-				}
-				else {
-					if(my_cards[select_clue-1] == 0) {
-						printf("없는 카드입니다 다시 입력하세요.\n");
-					}
-					else {
-						type_= PACKET;
-
-						// shift 해야됨
-						packet.clue = my_cards[select_clue-1];
-
-						// 서버에게 단서가 들어있는 패킷 전송
-						// 나의 식별번호를 clue의 우측에서 4비트에 담아서 서버에 전송
-						if(packet_send(sock, (char*)&packet, &type_) == -1){
-							return -1;
-						}
-
-						// 이제 패킷을 받아야 함
-						// 시그널을 먼저 받아야하나?
-						// packet_recv();
-
-						// 문자열 출력
-						printf("*번 플레이어가 턴플레이어(*번)에게 단서를 보여주었습니다\n");
-						break;
-					}
-				}
-			}
+			send_clue(sock, &packet);
+			print_clue(&packet);
 			return 0;
 		}
-		// SIG_DONE 받음
-		// 이미 단서는 넘겨졌으니 그냥 넘어가라.
+		// SIG_DONE 을 받음
 		else{ 
-			printf("이미 누가 단서를 제출했습니다. 넘어갑니다.\n");
-			// sig널 받고 패킷을 받아서 누가 턴플에게 단서를 줬는지 파싱해야함. 
-			// SIG_TURN_PLAYER or SIG_WAIT
-			if(packet_recv(sock, &sig, NULL) == -1){
+			printf("이미 누가 단서를 제출했습니다.\n");
+
+			// 서버로부터 단서 패킷을 받음
+			if(packet_recv(sock, (char *)&packet, NULL) == -1){
 				return -1;
 			}
-			if(sig == SIG_WAIT){
-				// 이 부분은 다시 생각해봐야 함.(왜 sigturn만 오는데 꼭 받아야 하는지.)
-				if(packet_recv(sock, &packet, NULL) == -1){
-					return -1;
-				}
-				int player_who_gave_clue = PLAYER_CLUE_PLAYER(packet.clue);
-				int player_who_get_clue = PLAYER_TURN_PLAYER(packet.info);
-				// 그리고 턴플레이어도 빼와서 히스토리나 출력에
-				// 누가 턴플레이어게 줫는지도 알려줘야 한다. 이부분은 내일 같이 상의.
-				
-				// To. 경안
-				// 우리는 할만큼 했다.
-				// 쉽지 않은 길이었다.
-				// 이제 너의 이야기다.
-				// 자, 펼쳐라
-			}
+			print_clue(&packet);
+
+			// To. 경안
+			// 경환아. 네가 여기까지 왔다면 너는 이제 시작이다.
+			// 우리는 할만큼 했다.
+			// 쉽지 않은 길이었다.
+			// 이제 너의 이야기다.
+			// 자, 펼쳐라. 너의 꿈을...!
 		}
 	}
 }
 
-char position_exchanger(short position, char info){
-	char place_card;
-	char i;
-	for(i =3; i > ((char)3- PLAYER_ID(info)); i--) ;
-
-	switch(PLAYER_POSITION(position, PLAYER_ID(info)) >> (i*4)){
-		case 0x0: place_card = 0x8; break;
-		case 0x1: place_card = 0x9; break;
-		case 0x2: place_card = 0xa; break;
-		case 0x4: place_card = 0xb; break;
-		case 0x5: place_card = 0xc; break;
-		case 0x6: place_card = 0xd; 
-	}
-	return place_card;
-}
 int clue_you_got(char* clue){
 	if(*clue & 0x18){
 		switch(*clue & 0x7){

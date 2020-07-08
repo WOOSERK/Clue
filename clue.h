@@ -8,9 +8,9 @@
 #define HEADER_SIZE (sizeof(Header))
 #define SIG_TURN (1)
 #define SIG_WAIT (2)
-#define SIG_INFR (3)
+#define SIG_INFR (5)
 #define SIG_DONE (4)
-#define PLAYER_CNT (2)
+#define PLAYER_CNT (4)
 
 #define PLAYER_TURN_PLAYER(player_info) ((player_info) & ((unsigned char)0x30))
 #define PLAYER_ID(player_info) ((player_info) & ((unsigned char)0x3)) 
@@ -90,12 +90,9 @@ int packet_send(int sock, char* packet, int* type)
 			perror("packet_send");
 			return -1;
 		}
-		// 패킷을 성공적으로 전송했으면
-		else if(nwritten == header.len)
+		else {
 			break;
-		// 패킷이 정상적으로 가지 않았으면 다시 보냄
-		else
-			continue;
+		}
 	}
 
 	return 0;
@@ -142,5 +139,20 @@ int packet_recv(int sock, char* packet, int* type)
 	}
 
 	return 0;
+}
+
+void leejinsoo(unsigned int bit)
+{
+	unsigned int parse_bit = 0x80000000;
+	for(int bit_num = 31; bit_num >= 0; bit_num--)
+	{
+		printf("%u", (bit & parse_bit) >> bit_num);
+		if(bit_num % 8 == 0)
+			printf(" ");
+
+		parse_bit >>= 1;
+	}
+
+	printf("\n");
 }
 

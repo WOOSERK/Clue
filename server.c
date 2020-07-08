@@ -584,9 +584,17 @@ int game_infer(Player_packet **player_packets, int *players, char *answer)
 			return -1;
 		}
 	}
+	printf("룸 오브 트루스는 그냥 지나감!\n");
 
 	// 모든 플레이어의 패킷에 추리정보를 세팅
-	game_set_infer(player_packets, player_packets[turn_player]);
+	game_set_infer(player_packets, &infer_packet);
+	unsigned short scene = PLAYER_INFER_SCENE(infer_packet.infer) >> 10;
+	unsigned short crime = PLAYER_INFER_CRIMINAL(infer_packet.infer) >> 5;
+	unsigned short weapon = PLAYER_INFER_WEAPON(infer_packet.infer);
+
+	printf("scene: %hd\n", scene);
+	printf("crime: %hd\n", crime);
+	printf("weapon: %hd\n", weapon);
 
 	// 모든 플레이어에게 추리정보가 담긴 패킷을 전송
 	game_route_packet(player_packets, players);
@@ -605,11 +613,25 @@ int game_infer(Player_packet **player_packets, int *players, char *answer)
 		if (sig == SIG_TURN) {
 			
 			// 단서 패킷을 받음
-			Player_packet packet;
+			Player_packet packet = {0,};
+			printf("info: %d\n", packet.info);
+			printf("position: %d\n", packet.position);
+			printf("cards: %d %d %d %d\n", packet.cards[0], packet.cards[1], packet.cards[2], packet.cards[3]);
+			printf("dice: %d\n", packet.dice);
+			printf("infer: %d\n", packet.infer);
+			printf("before_clue: %d\n\n", packet.clue);
+
 			packet_recv(players[target], (char *)&packet, NULL);
 
-			// 단서를 낸 경우 
+			printf("info: %d\n", packet.info);
+			printf("position: %d\n", packet.position);
+			printf("cards: %d %d %d %d\n", packet.cards[0], packet.cards[1], packet.cards[2], packet.cards[3]);
+			printf("dice: %d\n", packet.dice);
+			printf("infer: %d\n", packet.infer);
+			printf("after_clue: %d\n", packet.clue);
+
 			if (packet.clue != 0) {
+				printf("SIG_DONE으로 세팅됨!!\n");
 				clue_player = target;
 				sig = SIG_DONE;
 			}
