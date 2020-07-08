@@ -9,19 +9,21 @@
 #include <stdlib.h>
 #include <time.h>
 
+#include "ncur.h"
 #include "clue.h"
 
 
 int client_connect(void);
-int game_init(int sock, int *player_id);
-int game_update(int sock);
-int game_play(int sock, int player_id);
+int game_init(int sock, int *player_id, WINDOW ***windows,Player_packet *packet);    // -----------------------------------------------------------------------------경안
+int game_update(int sock, WINDOW ***windows,Cursor *cursor);// -------------------------------------------------------------------------------------------------------------------경안
+int game_play(int sock, int player_id,Player_packet *packet);	 // -----------------------------------------------------------------------------경안
 // int ui_update(Player_packet* );
 // int change_player_position(WINDOW* window, Player_packet* player_pakcet);
 // int set_my_amazing_cards(WINDOW* window, Player_packet* player_pakcet);
 // int set_our_amazing_jeahyeon_history();
 // int set_our_amazing_jeahyeon_log();
-int roll_and_go(int sock, int player_id); int roll_dice(void);
+int roll_and_go(int sock, int player_id,WINDOW ***windows,Player_packet *packet);// -------------------------------------------------------------------------------------------------------------경안
+int roll_dice(void);
 int return_player_choice(int dice_value);
 int return_player_position(int choice, int* y, int* x);
 int set_dice_in_packet(Player_packet* packet, int dice_value, int choice_value);
@@ -39,19 +41,22 @@ int main(){
 	if (sock == -1) {
 		return -1;
 	}
+	initscr();
+	refresh();
+	start_color();
+	color_init();
 
+	WINDOW ***windows;	
+
+	// -------------------------------------------------------------------------------------------------------------------경안
+	Player_packet packet={0,};
+	
 	int player_id;
-	if(game_init(sock, &player_id) == -1) {
+	if(game_init(sock, &player_id,windows,&packet) == -1) {// -------------------------------------------------------------------------------------------------------------------경안
 		return -1;
 	}
 
-	int result = game_play(sock, player_id);
-	
-	if(result == SIG_DIE)
-		printf("당신은 사건을 해결하지  못했다. 잘가시게\n");
-	else if(result == SIG_WIN)
-		printf("사건이 해결되었다.\n");
-
+	int result = game_play(sock, player_id, &packet);// -------------------------------------------------------------------------------------------------------------------경안
 	return 0;	
 }
 
@@ -66,7 +71,7 @@ int client_connect(void){
 	struct sockaddr_in addr = {0,};
 	addr.sin_family = AF_INET;
 	addr.sin_port = htons(8080);
-	addr.sin_addr.s_addr = inet_addr("127.0.0.1"); // 서버주소
+	addr.sin_addr.s_addr = inet_addr("192.168.30.14"); // 서버주소
 	
 	if(connect(sock, (struct sockaddr *)&addr, sizeof(addr)) == -1){
 		perror("connect");
@@ -76,62 +81,68 @@ int client_connect(void){
 	return sock;
 }
 
-int game_play(int sock, int player_id){
-	
+int game_play(int sock, int player_id,Player_packet *packet ){  	// --------------------------------------------------------------------------------------경안
+	WINDOW ***windows = display_init(packet->cards);	
+	Cursor cursor;
+	cursor.history = windows[6];
+	cursor.log = windows[7];
+	cursor.history_cnt = 0;
+	cursor.log_cnt = 0;
+	cursor.command = windows[13][2];
+
 	// 이후 클라이언트는 packet_recv로 대기한다. 
 	// 서버는 SIG_TURN 또는 SIG_WAIT을 보낼 것이다.
 	while(1){
 		int sig;
 		int type;
+
+		int turn_player = (int)PLAYER_TURN_PLAYER(packet->info);
+		blink_player(windows[12],turn_player);
+		char buf[32];
+		sprintf(buf,"player %d turn",turn_player);
+		str_add(cursor.log_str,((cursor.log_cnt)+=1),buf);
+
 		packet_recv(sock,(char*)&sig, &type);
 
 		// 턴플레이어의 경우
 		if(sig == SIG_TURN){
-			printf("내 턴입니다!!\n");
-			roll_and_go(sock, player_id);
+			roll_and_go(sock, player_id,windows,packet);// -------------------------------------------------------------------------------------------------------------------경안
 		}
-
 		// 턴 플레이어의 roll_and_go 정보를 모든 플레이어가 받아서 업데이트
-		game_update(sock);
+		game_update(sock, windows,&cursor);// -------------------------------------------------------------------------------------------------------------------경안
 
-		int result = game_infer(sock, player_id);
-
-		if(result == SIG_WIN)
-			return SIG_WIN;	
-		else if(result == SIG_DIE)
-			return SIG_DIE;	
+		game_infer(sock, player_id); 
+		packet_recv(sock,(char*)packet,NULL);
 	}
+	return 0;
 }
 
-int roll_and_go(int sock, int player_id){
+int roll_and_go(int sock, int player_id, WINDOW ***windows,Player_packet *packet){// -------------------------------------------------------------------------------------------------경안
+	WINDOW **player ;// -------------------------------------------------------------------------------------------------------------------경안
+	return_player_horse(windows,player,player_id);
 
+	unsigned short position = PLAYER_POSITION(packet->position,player_id);// -------------------------------------------------------------------------------------------------------------------경안
+	int y,x;
+	return_yx(position,&y,&x);
 	int dice_value = 0;
-	int choice_value = 0;
-	int x,y;
+	int choice_value = 0;// -------------------------------------------------------------------------------------------------------------------경안
 
 	// 주사위값 얻어냄
+	dice_cursor(windows[12][5]);
 	dice_value = roll_dice();
-
-	// To. 경안
-	// 경안아. 선택값과 위치값을 UI에서 선택해야한단다.
-	// 아래 함수들을 참고하렴
+	dice_num_print(windows[13][1],dice_value);// -------------------------------------------------------------------------------------------------------------------경안
 
 	// 선택값 얻어냄
-	choice_value = return_player_choice(dice_value);
+	//choice_value = return_player_choice(dice_value);
+	choice_value = map_cursor(player,windows[12],player_id,dice_value,y,x);// -------------------------------------------------------------------------------------------------------------------경안
 
 	// 위치값 얻어냄
 	if(return_player_position(choice_value, &y, &x) == -1){
 		return -1;	 
 	}
-	
-	printf("%d %d\n", x, y);
 
-	if(x == 3 && y == 3)
-		printf("진실의 방에 입장하였습니다...\n");
-
-	Player_packet packet = {0,};
-	set_dice_in_packet(&packet, dice_value, choice_value);
-	set_player_in_packet(&packet, player_id, y, x);
+	set_dice_in_packet(packet, dice_value, choice_value);  // choice_value 가 의미하는 것은 선택한 방번호 입니다. --------- 경안
+	set_player_in_packet(packet, player_id, y, x);
 
 	int type = PACKET;
 
@@ -161,17 +172,8 @@ int return_player_choice(int dice_value){
 }
 
 int return_player_position(int choice, int* y, int*x){
-	if(choice == 5)
-	{
-		*x = 3;
-		*y = 3;
-	}
-	else
-	{
-		*x = 2;
-		*y = 2;
-	}
-	
+	*x = 1;
+	*y = 2;
 	// 이부분은 ui와 연동이 되어야 함.
 
 	return 0;
@@ -190,60 +192,43 @@ int set_player_in_packet(Player_packet* packet, int player_id, int y, int x){
 	return 0;
 }
 
-int game_init(int sock, int *player_id) {
+int game_init(int sock, int *player_id, WINDOW ***windows,Player_packet *packet) {// ------------------------------------------------------------------------------------------경안
 
-	Player_packet packet;
-
-	// step 1)
-	packet_recv(sock,(char*)&packet, NULL);
+	packet_recv(sock,(char*)packet, NULL);
 	
-	// 카드를 보여라
-	for(int i=0; i<4; i++)
-	{
-		leejinsoo(packet.cards[i], 1);
-		clue_you_got(&packet.cards[i]);
-	}
+	windows = display_init(packet->cards);	 //----------------------------------------------------------------------------------------------------------- 경안
 
-
-	// ui_update(player); 
-
-	*player_id = PLAYER_ID(packet.info);
-
+	*player_id = PLAYER_ID(packet->info);
+	
+	mvwprintw(windows[1][0],0,1,"%d",packet->info);
+	wrefresh(windows[1][0]);
 	return 0;
 }
 
-int game_update(int sock){
+int game_update(int sock, WINDOW ***windows,Cursor *cursor){// -------------------------------------------------------------------------------------------------------------------경안
 	
 	// 서버로부터 초기화 패킷을 받아 게임을 초기화
 	// 클라이언트는 자신패킷을 가지고 있지 않음 .
 	// 따라서 매번 서버에서 패킷을 받아서 파싱해야 함.
-	Player_packet packet;
-
+	Player_packet packet={0,};
+	
 	// 패킷을 받는 것을 함수로 해야함.
 	// 여기에는 받은 패킷을 파싱하는 함수가 있어야 함.
 	int type;
 	packet_recv(sock,(char*)&packet, &type);
 
-	int turn_player = PLAYER_TURN_PLAYER(packet.info) >> 4;
-	int turn_player_position = PLAYER_POSITION(packet.position, turn_player) >> (4 * (3 - turn_player));
-
-	if(turn_player_position == 0xf)
-		printf("%d 플레이어가 진실의 방에 입장하였습니다...ㅋ\n", turn_player);
-
 	// 여기에서부터 초기화 업데이트
+	int turn_player = (int)PLAYER_TURN_PLAYER(packet.info);
+	int room_num = (int)PLAYER_SELECT_VALUE(packet.dice);
+	WINDOW **player;
+	return_player_horse(windows,player,turn_player); // 플레이어 윈도우 반환
+	horse_update(player,room_num,turn_player); // 위에서 반환받은 윈도우에 말 표시
 
-	// To. 경안
-	// 업데이트 잘하렴
-	// 우리는 너를 믿는단다
-	// ui_update(player); 
-
-	printf("-----아래 정보로 화면 업데이트 진행-----\n");
-	for (int i = 0; i < PLAYER_CNT; i++) {
-		printf("%d's POSITION: %d\n", i, PLAYER_POSITION(packet.position, i));
-	}
-	printf("DICE_VALUE: %d\n", PLAYER_DICE_VALUE(packet.dice) >> 3);
-	printf("SELECT_VALUE: %d\n\n", PLAYER_SELECT_VALUE(packet.dice));
-
+	char buf[128];
+	int turn_player_dice = (int)PLAYER_SELECT_VALUE(packet.dice);
+	sprintf(buf,"player %d: dice is : %d. I go to  %s room ",turn_player,turn_player_dice,parse_room_name(room_num));
+	str_add(cursor->log_str,((cursor->log_cnt)+=1),buf);
+	
 	return 0;	
 }
 
@@ -255,23 +240,20 @@ int send_clue(int sock, Player_packet *packet) {
 	unsigned short crime = PLAYER_INFER_CRIMINAL(packet->infer) >> 5;
 	unsigned short weapon = PLAYER_INFER_WEAPON(packet->infer);
 
-	printf("scene(send_clue): %hd\n", scene);
-	printf("crime(send_clue): %hd\n", crime);
-	printf("weapon(send_clue): %hd\n", weapon);
-
-	clue_you_got((char*)&scene);
-	clue_you_got((char*)&crime);
-	clue_you_got((char*)&weapon);
+	//printf("scene(send_clue): %hd\n", scene);
+	//printf("crime(send_clue): %hd\n", crime);
+	//printf("weapon(send_clue): %hd\n", weapon);
 
 	if (packet == NULL) {
 		fprintf(stderr, "send_clue : argument is null\n");
 		return -1;
 	}
 
-	printf("packet_clue_before: %hd\n", packet->clue);
+	//printf("packet_clue_before: %hd\n", packet->clue);
 	// 자신이 가지고 있는 카드가 추리 정보에 있을 경우, my_cards 배열에 넣음
 	char my_cards[3] = {0,};
 	int cnt = 0;
+
 	for (int i = 0; i < 4; i++){
 		printf("packet->cards[%d]: %d\n", i, packet->cards[i]);
 		if (scene == packet->cards[i]) {
@@ -287,8 +269,7 @@ int send_clue(int sock, Player_packet *packet) {
 
 	printf("-----DEBUG START-----\n");
 	for (int i = 0; i < cnt; i++) {
-		printf(" %d : ", i+1);
-		clue_you_got(&my_cards[i]);
+		printf("%d ", my_cards[i]);
 	}
 	printf("\n-----DEBUG END-----\n");
 
@@ -303,12 +284,11 @@ int send_clue(int sock, Player_packet *packet) {
 		int select_clue;
 		printf("\n무엇을 단서로 제출하시겠습니까? : ");
 		scanf("%d", &select_clue);
-		printf("%d\n", PLAYER_ID(packet->info));	
-		packet->clue = (PLAYER_ID(packet->info) << 5) | my_cards[select_clue-1];
+		packet->clue = my_cards[select_clue-1];
 	}
 
 	// 플레이어가 자기 카드 한장 또는 0을 서버에 전송 
-	printf("packet_clue: %hd\n", packet->clue);
+	//printf("packet_clue: %hd\n", packet->clue);
 	int type = PACKET;
 	if (packet_send(sock, (char*)packet, &type) == -1){
 		return -1;
@@ -364,26 +344,17 @@ int game_infer(int sock, int player_id) {
 
 	// 턴플은 SIG_INFR, 나머지는 SIG_WAIT을 기다림
 	packet_recv(sock, (char*)&sig, NULL);
-	printf("%d %d\n", sig, SIG_WAIT);
 
 	// 플레이어가 SIG_INFR를 받은 경우 : 턴플레이어
 	if (sig == SIG_INFR) {
 		
-		printf("siginfr을 받았습니다. 추리하세요.\n");
+
 		
 		// 범인, 흉기(장소는 이미 그 자리로 이동을 했으므로 자동 카운트)를 
 		// 정하는 함수를 만든뒤 패킷에 담는다. 그런 다음에 packet_send를 한다.
 		Player_packet packet = {0,};
 
-		// To. 경안
-		// 경환아. 우리다.
-		// 거기는 어떠니. 
-		// 이곳은 슬슬 싸늘하다.
-		// 너의 시끄러운 입이 그립구나.
-		// 혹시 이 글을 읽고 있다면 일단 나가라
-		// 경안아. 장소는 블락하고 나머지는 선택할 수 있게 해라
-		// 진실의 방이 아닐 경우에는 현장을 고를 때 커서를 고정시키렴
-
+		
 		// 추리 정보 선택
 		// 이부분은 윈도우와의 연계가 필요함 일단은 예비로 설정.
 		// UI 처리
@@ -416,7 +387,7 @@ int game_infer(int sock, int player_id) {
 		}
 
 		// 서버로부터 전송되는 단서 신호를 대기
-		// SIG_TURN or SIG_DONE or SIG_DIE or SIG_WIN
+		// SIG_TURN or SIG_DONE
 		if (packet_recv(sock, (char*)&sig, NULL) == -1){
 			return -1;
 		}
@@ -424,7 +395,6 @@ int game_infer(int sock, int player_id) {
 		// SIG_DONE이 전송됨
 		// 턴플을 제외한 나머지 플레이어 중 하나가 단서를 제출한 경우
 		if (sig == SIG_DONE){
-			printf("누군가 단서를 냈습니다. 턴플레이어는 단서를 받으세요\n");
 
 			// 서버로부터 단서 패킷을 받음
 			if(packet_recv(sock, (char*)&packet, NULL) == -1){
@@ -436,26 +406,13 @@ int game_infer(int sock, int player_id) {
 		}
 		// SIG_TURN 이 전송됨
 		// 아무도 단서를 내지 않아 턴플이 단서를 내야되는 경우
-		else if(sig == SIG_TURN) { 
+		else { 
 			printf("턴플레이어가 단서를 내야 됩니다\n");
 			send_clue(sock, &packet);
 			print_clue(&packet);
+			
+			return 0;
 		}
-		// sig == SIG_DIE
-		else if(sig == SIG_DIE){
-			printf("넌 죽었습니다 ㅋㅋ\n");	
-			// 죽은 플레이어의 카드가 공개된다.. 개봉박두.
-			// 안쓰지만 패킷은 받아놓자... 
-			packet_recv(sock, (char*)&packet, NULL);
-			return SIG_DIE;
-		}
-		//sig == SIG_WIN
-		else{ 
-			printf("%d 플레이어가 이겼습니다... 게임이 종료됩니다.\n", PLAYER_TURN_PLAYER(packet.info) >> 4);
-			return SIG_WIN;
-		}
-
-		return 0;
 	}
 
 	// 플레이어가 SIG_WAIT을 받은 경우 : 턴플레이어가 아닌 다른 플레이어
@@ -469,16 +426,14 @@ int game_infer(int sock, int player_id) {
 		}
 
 		// 서버로부터 전송되는 단서 신호를 대기
-		// SIG_TURN or SIG_DONE or SIG_DIE or SIG_WIN
+		// SIG_TURN or SIG_DONE
 		if (packet_recv(sock, (char*)&sig, NULL) == -1) {
 			return -1;
 		}
 
-		printf("%d %d\n", sig, SIG_DIE);
 		// 만약 SIG_TURN이 왔다면 내가 단서를 서버에 제출해야함
 		// 만약 SIG_DONE이 왔다면 누가 이미 냈으므로 너는 넘어가라는 의미
-		// 만약 SIG_DIE가 왔다면 턴플레이어가 죽음ㅋㅋ
-		// 만약 SIG_WIN이 왔으면 게임이 끝난다...ㅠ
+
 		// SIG_TURN 을 받음
 		if(sig == SIG_TURN){
 			send_clue(sock, &packet);
@@ -486,7 +441,7 @@ int game_infer(int sock, int player_id) {
 			return 0;
 		}
 		// SIG_DONE 을 받음
-		else if(sig == SIG_DONE){ 
+		else{ 
 			printf("이미 누가 단서를 제출했습니다.\n");
 
 			// 서버로부터 단서 패킷을 받음
@@ -502,56 +457,39 @@ int game_infer(int sock, int player_id) {
 			// 이제 너의 이야기다.
 			// 자, 펼쳐라. 너의 꿈을...!
 		}
-		// sig == SIG_DIE
-		else if(sig == SIG_DIE){
-			printf("%d 플레이어가 죽었습니다 ㅋㅋ\n", PLAYER_TURN_PLAYER(packet.info) >> 4);	
-			// 죽은 플레이어의 카드가 공개된다.. 개봉박두.
-			packet_recv(sock, (char*)&packet, NULL);
-			clue_you_got(&packet.cards[0]);
-			clue_you_got(&packet.cards[1]);
-			clue_you_got(&packet.cards[2]);
-			clue_you_got(&packet.cards[3]);
-		}
-		//sig == SIG_WIN
-		else{ 
-			printf("%d 플레이어가 이겼습니다... 게임이 종료됩니다.\n", PLAYER_TURN_PLAYER(packet.info) >> 4);
-			return SIG_WIN;
-		}
 	}
 	return 0;
 }
 
 int clue_you_got(char* clue){
-	int kind = (*clue & 0x18) >> 3;
-	if(kind == WEAPON){
+	if(*clue & 0x18){
 		switch(*clue & 0x7){
-			case 0x0: printf("칼\n"); break;
-			case 0x1: printf("우산\n"); break;
-			case 0x2: printf("주먹\n"); break;
-			case 0x3: printf("맥북\n"); break;
-			case 0x4: printf("의자\n"); break;
-			case 0x5: printf("케이블\n"); break;
-			case 0x6: printf("주가\n"); 
+			case 0x0: printf("단서는 문효원의 정치질\n"); break;
+			case 0x1: printf("단서는 원창이의 주먹\n"); break;
+			case 0x2: printf("단서는 우석이의 혀\n"); break;
+			case 0x3: printf("단서는 주성이의 가\n"); break;
+			case 0x4: printf("단서는 경안아닌 김경환\n"); break;
+			case 0x5: printf("단서는 제현아닌 신재현\n"); break;
+			case 0x6: printf("단서는 rihanna의 우산\n"); 
 		}
-	}
-	else if(kind == CRIMINAL){
+	}else if(*clue & 0x08){
 		switch(*clue & 0x7){
-			case 0x0: printf("김경환\n"); break;
-			case 0x1: printf("김우석\n"); break;
-			case 0x2: printf("김주성\n"); break;
-			case 0x3: printf("박원창\n"); break;
-			case 0x4: printf("신제현\n"); break;
-			case 0x5: printf("전경안\n"); 
+			case 0x0: printf("단서는 Kitchen\n"); break;
+			case 0x1: printf("단서는 Classroom\n"); break;
+			case 0x2: printf("단서는 Restroom\n"); break;
+			case 0x3: printf("단서는 Office\n"); break;
+			case 0x4: printf("단서는 Horse\n"); break;
+			case 0x5: printf("단서는 TrainingRoom\n"); 
 		}
 	}
 	else{
 		switch(*clue & 0x7){
-			case 0x0: printf("주방\n"); break;
-			case 0x1: printf("교실\n"); break;
-			case 0x2: printf("화장실\n"); break;
-			case 0x3: printf("사무실\n"); break;
-			case 0x4: printf("말\n"); break;
-			case 0x5: printf("체단실\n"); 
+			case 0x0: printf("단서는 A\n"); break;
+			case 0x1: printf("단서는 B\n"); break;
+			case 0x2: printf("단서는 C\n"); break;
+			case 0x3: printf("단서는 D\n"); break;
+			case 0x4: printf("단서는 E\n"); break;
+			case 0x5: printf("단서는 F\n"); 
 		}
 	}
 	return 0;
@@ -577,3 +515,4 @@ int clue_you_got(char* clue){
 // int set_our_amazing_jeahyeon_log(){
 // 
 // }
+
