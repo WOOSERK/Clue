@@ -293,8 +293,6 @@ int game_set_clue(Player_packet** player_packets, Player_packet* player_packet)
 		return -1;
 	}
 
-	printf("set_clue1\n");
-
 	char clue_bit = player_packet->clue;
 	for(int player_num = 0; player_num < PLAYER_CNT; player_num++) {
 		if (player_packets[player_num] != NULL) 
@@ -302,8 +300,6 @@ int game_set_clue(Player_packet** player_packets, Player_packet* player_packet)
 			player_packets[player_num]->clue = clue_bit;
 		}
 	}
-
-	printf("set_clue2\n");
 
 	return 0;
 }
@@ -340,7 +336,6 @@ int game_init_player_data(Player_packet** player_packets)
 	}
 
 	ret = game_set_clue(player_packets, &player_packet);
-	printf("code1\n");
 
 	if(ret == -1)
 	{
@@ -348,7 +343,6 @@ int game_init_player_data(Player_packet** player_packets)
 		return -1;
 	}
 
-	printf("code2\n");
 	return 0;
 }
 
@@ -367,11 +361,7 @@ int game_next_turn(Player_packet** player_packets)
 		return -1;
 	}
 
-	printf("code3\n");
-
 	game_set_turn(player_packets);
-
-	printf("code4\n");
 
 	return 0;
 }
@@ -452,7 +442,6 @@ Player_packet** game_init(int* players, char* answer)
 	game_init_cards(player_packets, answer);
 	game_init_players(player_packets);
 
-	// step 1) 
 	game_route_packet(player_packets, players);
 	return player_packets;
 }
@@ -544,8 +533,7 @@ int game_roll_and_go(Player_packet** player_packets, int *players)
 	game_route_packet(player_packets, players);
 
 	printf("\n-----턴플레이어에게 전달받은 패킷 출력-----\n");
-	
-	printf("turn's POSITION: "), leejinsoo(PLAYER_POSITION(player_packets[turn_player]->position, turn_player), 2);
+	printf("TURN'S POSITION: "), leejinsoo(PLAYER_POSITION(player_packets[turn_player]->position, turn_player), 2);
 	printf("DICE_VALUE: "), leejinsoo(PLAYER_DICE_VALUE(player_packets[turn_player]->dice) >> 3, 1);
 	printf("SELECT_VALUE: "), leejinsoo(PLAYER_SELECT_VALUE(player_packets[turn_player]->dice), 1);
 
@@ -560,7 +548,6 @@ int game_player_out(Player_packet **player_packets, int *players, int player) {
 		return -1;
 	}
 
-	printf("free_player_num: %d\n", player);
 	free(player_packets[player]);
 
 	player_packets[player] = NULL;
@@ -592,6 +579,25 @@ int game_ROOM_OF_TRUTH(Player_packet **player_packets, int *players, int player,
 	}
 }
 
+#define PARSE_CATE(card) (((card>>3)&0x3))
+#define PARSE_CARD(card) (card&0x7)
+char* parse_card(int category, int card_num){
+    char *str;
+    if(category == 1){
+        char *str1[] = {"Kitchen","ClassRoom","RestRoom","Training","Horse","Office","RoomO    fTurth"};
+        str = str1[card_num];
+    }
+    else if(category == 2) {
+        char *str1[] ={"KH_Kim","WS_Kim","JS_Kim","WC_Park","JH_Shin","KA_Jeon"};
+        str = str1[card_num];
+    }
+    else if(category == 3){
+        char *str1[] = {"Knife","Umbrella","Punch","MacBook","Chair","Cable","ZUGA"};
+        str = str1[card_num];
+    }
+    return str;
+}
+
 // 반환값
 // SIG_WIN : 턴플레이어가 이김
 // SIG_DIE : 턴플레이어가 찍~
@@ -612,7 +618,7 @@ int game_infer(Player_packet **player_packets, int *players, char *answer)
 		}
 	}
 	
-	printf("turn_player: %d\n", turn_player);
+	printf("TURN_PLAYER: %d\n", turn_player);
 
 	// 턴플레이어에게 SIG_INFR 전송
 	// 나머지 플레이어에게는 SIG_WAIT 전송
@@ -622,8 +628,10 @@ int game_infer(Player_packet **player_packets, int *players, char *answer)
 	Player_packet infer_packet;
 	packet_recv(players[turn_player], (char*)&infer_packet, NULL);
 
-	for(int i=0; i<3; i++)
+	printf("\n정답: ");
+	for(int i = 0; i < 3; i++) {
 		printf("%d ", answer[i]);
+	} printf("\n");
 
 	// 모든 플레이어의 패킷에 추리정보를 세팅
 	game_set_infer(player_packets, &infer_packet);
@@ -631,9 +639,10 @@ int game_infer(Player_packet **player_packets, int *players, char *answer)
 	unsigned short crime = PLAYER_INFER_CRIMINAL(infer_packet.infer) >> 5;
 	unsigned short weapon = PLAYER_INFER_WEAPON(infer_packet.infer);
 
-	printf("scene: "), leejinsoo(scene, 1);
-	printf("crime: "), leejinsoo(crime, 1);
-	printf("weapon: "), leejinsoo(weapon, 1);
+	printf("턴플레이어의 추리정보:\n");
+	printf("scene: %s\n", parse_card(PARSE_CATE(scene), PARSE_CARD(scene))); 
+	printf("crime: %s\n", parse_card(PARSE_CATE(crime), PARSE_CARD(crime))); 
+	printf("weapon: %s\n\n", parse_card(PARSE_CATE(weapon), PARSE_CARD(weapon))); 
 
 	// 모든 플레이어에게 추리정보가 담긴 패킷을 전송
 	game_route_packet(player_packets, players);
@@ -762,7 +771,6 @@ int main()
 	// 게임이 끝날 때까지 반복
 	while(1)
 	{
-		printf("나, 메인\n");
 		if (game_roll_and_go(player_packets, players) == -1) {
 			return -1;
 		}
@@ -771,7 +779,6 @@ int main()
 			break;
 		}
 
-		printf("test code\n");
 		// 턴 플레이어를 변경(비트 세팅)
 		game_next_turn(player_packets);
 	}
