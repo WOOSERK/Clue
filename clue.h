@@ -8,7 +8,7 @@
 #define HEADER_SIZE (sizeof(Header))
 #define SIG_TURN (1)
 #define SIG_WAIT (2)
-#define SIG_INFR (3)
+#define SIG_INFR (5)
 #define SIG_DONE (4)
 #define PLAYER_CNT (4)
 
@@ -140,6 +140,8 @@ int packet_recv(int sock, char* packet, int* type)
 
 	return 0;
 }
+
+
 
 void leejinsoo(unsigned int bit, int size)
 {
