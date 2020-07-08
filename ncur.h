@@ -3,6 +3,7 @@
 #include <ncurses.h>
 #include <pthread.h>
 #include <stdlib.h>
+#include <string.h>
 #define NUM_ABS(a,b) ((a-b) < 0 ? ((-1)*(a-b)) : (a-b))
 #define CAL_RANGE(cury,curx,y,x) (NUM_ABS(cury,y)+NUM_ABS(curx,x))
 #define PARSE_CATE(card) (((card>>3)&0x3))
@@ -19,6 +20,17 @@
 #define STR_ARR_MAX (1024)
 #define COMMAND_X (70)
 #define COMMAND_Y (1)
+
+typedef struct Cursor{
+	WINDOW **history; // 커서 제어를 위한 history 윈도우
+	WINDOW **log; // 커서 제어를 위한 log 윈도우 
+	char* history_str[STR_ARR_MAX]; // history 로그를 담기 위한 배열
+	char* log_str[STR_ARR_MAX]; // log 로그를 담기위한 배열
+	int history_cnt; // history 로그 개수를 카운트
+	int log_cnt; // log 개수를 카운트
+	WINDOW *command; // 사용자의 커맨드를 출력하는 함수
+}Cursor;
+
 /*
 	windows[0](layout) : map,memo,clue,history,log,infer;
 	windows[1](map) : outer,background,kitchen,hall,classroom,stair,looftop,toilet,office,livingroom,training
@@ -113,4 +125,10 @@ void dice_num_print(WINDOW *window, int num);
 WINDOW*** display_init(char *card); 
 // 카드 배열을 보내면 파싱을 해서 숫자로 뽑아낸다.
 int* parse_card_num(char* cards);
+// position 패킷을 보내면 yx에 값을 세팅해서 준다.
+void return_yx(unsigned short position,int *y, int *x);
+// player_id 에 해당하는 말 윈도우 반환
+void return_player_horse(WINDOW ***window,WINDOW **player,int player_id);
+/*방 번호를 전달하면 방의 이름을 반환하는 함수*/
+char* parse_room_name(int room_num);
 #endif

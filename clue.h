@@ -8,8 +8,15 @@
 #define HEADER_SIZE (sizeof(Header))
 #define SIG_TURN (1)
 #define SIG_WAIT (2)
-#define SIG_INFR (5)
+#define SIG_INFR (3)
 #define SIG_DONE (4)
+#define SIG_DIE (5)
+#define SIG_WIN (6)
+
+#define SCENE (1) 					// 현장
+#define CRIMINAL (2) 				// 범인
+#define WEAPON (3) 					// 흉기
+
 #define PLAYER_CNT (4)
 
 #define PLAYER_TURN_PLAYER(player_info) ((player_info) & ((unsigned char)0x30))
@@ -140,8 +147,6 @@ int packet_recv(int sock, char* packet, int* type)
 
 	return 0;
 }
-
-
 
 void leejinsoo(unsigned int bit, int size)
 {
