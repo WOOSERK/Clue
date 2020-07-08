@@ -13,7 +13,6 @@
 #define SHUFFLE_CNT (10) 			// 섞는 횟수
 #define DISTRIBUTE_CARD_CNT (16) 	// 분배되는 카드 개수
 
-
 // 서버 여는(서버 소켓 만드는) 함수
 int server_open()
 {
@@ -145,7 +144,7 @@ int game_init_cards(Player_packet** player_packets, char* answer)
 		for(int card = 0; card < maxCnt; card++)
 		{
 			int card_value = (kind << 3) | card;
-			if(card_value == answer[kind])
+			if(card_value == answer[kind-1])
 				continue;
 
 			cards[cnt++] = (kind << 3) | card;
@@ -422,11 +421,13 @@ char* game_set_answer()
 	for(int kind = 1; kind <= 3; kind++)
 	{
 		if(kind == WEAPON)
-			answer[kind] = (kind << 3) | (rand() % 7);
+			answer[kind-1] = (kind << 3) | (rand() % 7);
 		else
-			answer[kind] = (kind << 3) | (rand() % 6);	
+			answer[kind-1] = (kind << 3) | (rand() % 6);	
+		printf("%d\n", answer[kind-1]);
 	}	
 
+	printf("zz4\n");
 	return answer;
 }
 
@@ -443,16 +444,17 @@ int game_send_signal(int *players, int target_signal, int other_signal, int turn
 		if(player_num == turn_player)
 		{
 			signal = target_signal;	
+			printf("player%d : signal %d\n", player_num, signal);
 			packet_send(players[player_num], (char*)&signal, &type);
 		}
 		else
 		{
 			signal = other_signal;
+			printf("player%d : signal %d\n", player_num, signal);
 			packet_send(players[player_num], (char*)&signal, &type);
 		}
 	}
 }
-
 
 int game_roll_and_go(Player_packet** player_packets, int *players)
 {
@@ -491,9 +493,9 @@ int game_roll_and_go(Player_packet** player_packets, int *players)
 	game_route_packet(player_packets, players);
 
 	printf("\n-----턴플레이어에게 전달받은 패킷 출력-----\n");
-	printf("turn's POSITION: %d\n", PLAYER_POSITION(player_packets[0]->position, turn_player));
-	printf("DICE_VALUE: %d\n", PLAYER_DICE_VALUE(player_packets[0]->dice));
-	printf("SELECT_VALUE: %d\n", PLAYER_SELECT_VALUE(player_packets[0]->dice));
+	printf("turn's POSITION: "), leejinsoo(PLAYER_POSITION(player_packets[0]->position, turn_player), 2);
+	printf("DICE_VALUE: "), leejinsoo(PLAYER_DICE_VALUE(player_packets[0]->dice), 1);
+	printf("SELECT_VALUE: "), leejinsoo(PLAYER_SELECT_VALUE(player_packets[0]->dice), 1);
 
 	return 0;
 }
@@ -551,7 +553,7 @@ int game_infer(Player_packet **player_packets, int *players, char *answer)
 			break;
 		}
 	}
-	printf("turn: %d\n", turn_player);
+	printf("turn_player: %d\n", turn_player);
 
 	// 턴플레이어에게 SIG_INFR 전송
 	// 나머지 플레이어에게는 SIG_WAIT 전송
@@ -585,6 +587,10 @@ int game_infer(Player_packet **player_packets, int *players, char *answer)
 		}
 	}
 	printf("룸 오브 트루스는 그냥 지나감!\n");
+	for(int i=0; i<3; i++)
+	{
+		printf("%d ", answer[i]);
+	}
 
 	// 모든 플레이어의 패킷에 추리정보를 세팅
 	game_set_infer(player_packets, &infer_packet);
@@ -592,9 +598,9 @@ int game_infer(Player_packet **player_packets, int *players, char *answer)
 	unsigned short crime = PLAYER_INFER_CRIMINAL(infer_packet.infer) >> 5;
 	unsigned short weapon = PLAYER_INFER_WEAPON(infer_packet.infer);
 
-	printf("scene: %hd\n", scene);
-	printf("crime: %hd\n", crime);
-	printf("weapon: %hd\n", weapon);
+	printf("scene: "), leejinsoo(scene, 1);
+	printf("crime: "), leejinsoo(crime, 1);
+	printf("weapon: "), leejinsoo(weapon, 1);
 
 	// 모든 플레이어에게 추리정보가 담긴 패킷을 전송
 	game_route_packet(player_packets, players);
@@ -614,24 +620,20 @@ int game_infer(Player_packet **player_packets, int *players, char *answer)
 			
 			// 단서 패킷을 받음
 			Player_packet packet = {0,};
-			printf("info: %d\n", packet.info);
-			printf("position: %d\n", packet.position);
-			printf("cards: %d %d %d %d\n", packet.cards[0], packet.cards[1], packet.cards[2], packet.cards[3]);
-			printf("dice: %d\n", packet.dice);
-			printf("infer: %d\n", packet.infer);
-			printf("before_clue: %d\n\n", packet.clue);
 
 			packet_recv(players[target], (char *)&packet, NULL);
 
-			printf("info: %d\n", packet.info);
-			printf("position: %d\n", packet.position);
-			printf("cards: %d %d %d %d\n", packet.cards[0], packet.cards[1], packet.cards[2], packet.cards[3]);
-			printf("dice: %d\n", packet.dice);
-			printf("infer: %d\n", packet.infer);
-			printf("after_clue: %d\n", packet.clue);
+			printf("info: "), leejinsoo(packet.info, 1);
+			printf("position: "), leejinsoo(packet.position, 2);
+			printf("cards: "), leejinsoo(packet.cards[0], 1), leejinsoo(packet.cards[1], 1), leejinsoo(packet.cards[2], 1), leejinsoo(packet.cards[3], 1);
+			printf("dice: "), leejinsoo(packet.dice, 1);
+			printf("infer: "), leejinsoo(packet.infer, 2);
+			printf("after_clue: "), leejinsoo(packet.clue, 1);
 
+			printf("\n\n");
 			if (packet.clue != 0) {
 				printf("SIG_DONE으로 세팅됨!!\n");
+				player_packets[target]->clue = packet.clue;
 				clue_player = target;
 				sig = SIG_DONE;
 			}
@@ -659,11 +661,12 @@ int game_infer(Player_packet **player_packets, int *players, char *answer)
 		// 턴플레이어로부터 단서 정보를 기다림
 		Player_packet packet;
 		packet_recv(players[turn_player], (char *)&packet, NULL);
-		printf("턴플레이어가 보낸 단서 정보 : %d\n", packet.clue);
+		printf("턴플레이어가 보낸 단서 정보 : "), leejinsoo(packet.clue, 1);
 	}
 
 	// 모든 플레이어의 단서를 세팅
 	game_set_clue(player_packets, player_packets[player]);
+	printf("누군가 낸 단서 : "), leejinsoo(player_packets[player]->clue, 1);
 
 	// 모든 플레이어에게 단서가 담긴 패킷 전송
 	game_route_packet(player_packets, players);
@@ -694,7 +697,6 @@ int END_GAME(Player_packet **player_packets, int *players, char *answer, int sso
 
 int main()
 {
-
 	int ssock = server_open();			 // 서버를 연다.
 	int* players = server_accept(ssock); // 플레이어 4명을 받는다.
 	char* answer = game_set_answer();    // 정답 카드를 설정한다.
