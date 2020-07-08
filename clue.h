@@ -13,6 +13,10 @@
 #define SIG_DIE (5)
 #define SIG_WIN (6)
 
+#define SCENE (1) 					// 현장
+#define CRIMINAL (2) 				// 범인
+#define WEAPON (3) 					// 흉기
+
 #define PLAYER_CNT (4)
 
 #define PLAYER_TURN_PLAYER(player_info) ((player_info) & ((unsigned char)0x30))
