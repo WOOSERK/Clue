@@ -71,7 +71,7 @@ int client_connect(void){
 	struct sockaddr_in addr = {0,};
 	addr.sin_family = AF_INET;
 	addr.sin_port = htons(8080);
-	addr.sin_addr.s_addr = inet_addr("192.168.30.14"); // 서버주소
+	addr.sin_addr.s_addr = inet_addr("192.168.30.31"); // 서버주소
 	
 	if(connect(sock, (struct sockaddr *)&addr, sizeof(addr)) == -1){
 		perror("connect");
@@ -119,9 +119,9 @@ int game_play(int sock, int player_id,Player_packet *packet ){  	// ------------
 
 int roll_and_go(int sock, int player_id, WINDOW ***windows,Player_packet *packet){// -------------------------------------------------------------------------------------------------경안
 	WINDOW **player ;// -------------------------------------------------------------------------------------------------------------------경안
-	return_player_horse(windows,player,player_id);
+	return_player_horse(windows,&player,player_id);
 
-	unsigned short position = PLAYER_POSITION(packet->position,player_id);// -------------------------------------------------------------------------------------------------------------------경안
+	unsigned short position = PLAYER_POSITION(packet->position,player_id) >> (4 * (3 - player_id));// -------------------------------------------------------------------------------------------------------------------경안
 	int y,x;
 	return_yx(position,&y,&x);
 	int dice_value = 0;
@@ -135,7 +135,6 @@ int roll_and_go(int sock, int player_id, WINDOW ***windows,Player_packet *packet
 	// 선택값 얻어냄
 	//choice_value = return_player_choice(dice_value);
 	choice_value = map_cursor(player,windows[12],player_id,dice_value,y,x);// -------------------------------------------------------------------------------------------------------------------경안
-
 	// 위치값 얻어냄
 	if(return_player_position(choice_value, &y, &x) == -1){
 		return -1;	 
@@ -147,7 +146,10 @@ int roll_and_go(int sock, int player_id, WINDOW ***windows,Player_packet *packet
 	int type = PACKET;
 
 	// 서버에게 roll_and_go 정보를 전송
-	packet_send(sock, (char*)&packet, &type);
+	packet_send(sock, (char*)packet, &type);
+
+	mvwprintw(windows[1][0],1,0,"select : %d",PLAYER_SELECT_VALUE(packet->dice));
+	wrefresh(windows[1][0]);
 
 	return 0;
 }
@@ -172,8 +174,37 @@ int return_player_choice(int dice_value){
 }
 
 int return_player_position(int choice, int* y, int*x){
-	*x = 1;
-	*y = 2;
+	switch(choice)
+	{
+		case 0:
+			*y = 0;
+			*x = 0;
+			break;
+		case 1:
+			*y = 0;
+			*x = 1;
+			break;
+		case 2:
+			*y = 0;
+			*x = 2;
+			break;
+		case 3:
+			*y = 1;
+			*x = 0; 
+			break;
+		case 4:
+			*y = 1;
+			*x = 1;
+			break;
+		case 5:
+			*y = 1;
+			*x = 2;
+			break;
+		case 6:
+			break;
+		default:
+			break;
+	}
 	// 이부분은 ui와 연동이 되어야 함.
 
 	return 0;
@@ -218,10 +249,13 @@ int game_update(int sock, WINDOW ***windows,Cursor *cursor){// -----------------
 	packet_recv(sock,(char*)&packet, &type);
 
 	// 여기에서부터 초기화 업데이트
-	int turn_player = (int)PLAYER_TURN_PLAYER(packet.info);
-	int room_num = (int)PLAYER_SELECT_VALUE(packet.dice);
+	int turn_player = (int)PLAYER_TURN_PLAYER(packet.info) >> 4;
+	int room_num = PLAYER_SELECT_VALUE(packet.dice) ;
+
+	mvwprintw(windows[1][0],0,0,"turn_p : %d, room_nu : %d",turn_player,room_num);
+	wrefresh(windows[1][0]);
 	WINDOW **player;
-	return_player_horse(windows,player,turn_player); // 플레이어 윈도우 반환
+	return_player_horse(windows,&player,turn_player); // 플레이어 윈도우 반환
 	horse_update(player,room_num,turn_player); // 위에서 반환받은 윈도우에 말 표시
 
 	char buf[128];
@@ -234,7 +268,7 @@ int game_update(int sock, WINDOW ***windows,Cursor *cursor){// -----------------
 
 
 // packet변수에 서버로부터 라우팅된 단서 패킷이 세팅됨
-int send_clue(int sock, Player_packet *packet) {
+int send_clue(int sock, Player_packet *packet) {     						//-------------------------------
 
 	unsigned short scene = PLAYER_INFER_SCENE(packet->infer) >> 10;
 	unsigned short crime = PLAYER_INFER_CRIMINAL(packet->infer) >> 5;
@@ -266,17 +300,12 @@ int send_clue(int sock, Player_packet *packet) {
 			my_cards[cnt++] = packet->cards[i];		
 		}
 	}
-
-	printf("-----DEBUG START-----\n");
-	for (int i = 0; i < cnt; i++) {
-		printf("%d ", my_cards[i]);
-	}
-	printf("\n-----DEBUG END-----\n");
+	int player_id = (int)PLAYER_ID(packet->info);
 
 	// 플레이어가 단서가 없는 경우
 	if (cnt == 0) {
 		// 단서 비트를 0으로 세팅
-		printf("단서가 없습니다.\n");
+		
 		packet->clue = 0x0;
 	}
 	// 플레이어가 단서가 있는 경우
@@ -348,7 +377,7 @@ int game_infer(int sock, int player_id) {
 	// 플레이어가 SIG_INFR를 받은 경우 : 턴플레이어
 	if (sig == SIG_INFR) {
 		
-
+		//infer_cursor();
 		
 		// 범인, 흉기(장소는 이미 그 자리로 이동을 했으므로 자동 카운트)를 
 		// 정하는 함수를 만든뒤 패킷에 담는다. 그런 다음에 packet_send를 한다.
