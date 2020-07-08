@@ -177,14 +177,11 @@ int game_init(int sock, int *player_id) {
 
 	Player_packet packet;
 
-	// step 1)
 	packet_recv(sock,(char*)&packet, NULL);
 	
 	// ui_update(player); 
 
-	display_init(packet.cards);	 // 경안₩
-
-
+	display_init(packet.cards);	 // 경안
 
 	*player_id = PLAYER_ID(packet.info);
 

@@ -200,6 +200,7 @@ void run(){
 	dice_cursor(playerList[5]);
 */
 
+	/*
 	getchar();
 	
 	int room, suspect, weapon;
@@ -224,6 +225,7 @@ void run(){
 	horse_update(player2,room_num,1);	
 
 	dice_cursor(playerList[5]);
+	*/
 
 	endwin();
 
