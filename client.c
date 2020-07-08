@@ -17,11 +17,6 @@ int client_connect(void);
 int game_init(int sock, int *player_id, WINDOW ***windows,Player_packet *packet);    
 int game_update(int sock, WINDOW ***windows,Cursor *cursor);
 int game_play(int sock, int player_id,Player_packet *packet);	 
-// int ui_update(Player_packet* );
-// int change_player_position(WINDOW* window, Player_packet* player_pakcet);
-// int set_my_amazing_cards(WINDOW* window, Player_packet* player_pakcet);
-// int set_our_amazing_jeahyeon_history();
-// int set_our_amazing_jeahyeon_log();
 int roll_and_go(int sock, int player_id,WINDOW ***windows,Player_packet *packet);
 int roll_dice(void);
 int return_player_choice(int dice_value);
@@ -30,9 +25,12 @@ int set_dice_in_packet(Player_packet* packet, int dice_value, int choice_value);
 int set_player_in_packet(Player_packet* packet, int player_id, int y, int x);
 int sig_recv(int sock);
 int game_infer(int sock, int player_id,Cursor* cursor,WINDOW ***windows);
-int clue_you_got(char* clue);
 int send_clue(int sock, Player_packet *packet,Cursor *cursor,WINDOW **clue);
 int print_clue(Player_packet *packet);
+
+// int ui_update(Player_packet* );
+// int change_player_position(WINDOW* window, Player_packet* player_pakcet);
+// int clue_you_got(char* clue);
 
 
 int main(){
@@ -133,6 +131,7 @@ int game_play(int sock, int player_id, Player_packet *packet) {
 		}
 	
 		// 다음 턴이 누구인지 말해주는 용도
+		// 서버에서 보내주어야함
 		// packet_recv(sock, (char*)packet, NULL);
 	}
 	return 0;
@@ -362,7 +361,7 @@ int print_clue(Player_packet *packet) {
 	// 턴플레이어가 아닌 다른 플레이어가 단서를 제출한 경우
 	else if (clue_player_id != turn_player_id) {
 		if (player_id == turn_player_id) {
-			clue_you_got(&(packet->clue));
+			// clue_you_got(&(packet->clue));
 		}
 		else {
 			printf("%d 플레이어가 %d 플레이어에게 단서를 제출함!!\n", clue_player_id, turn_player_id);
@@ -447,14 +446,17 @@ int game_infer(int sock, int player_id,Cursor* cursor,WINDOW ***windows) {
 			char* clue_name = parse_card(clue_cate,clue_card);
 			sprintf(infer_buf,"player%d] %s -> player%d",clue_player,clue_name,player_id); 
 			str_add(cursor->log_str,((cursor->log_cnt)+=1),infer_buf);
-			// UI 처리(단서 정보를 플레이어 화면에 출력)
-			// print_clue(&packet);
+			
+			// UI 처리(단서 정보를 모든 플레이어 로그 화면에 출력)
+			print_clue(&packet);
 		}
 		// SIG_TURN이 전송됨
 		// 아무도 단서를 내지 않아 턴플이 단서를 내야되는 경우
 		else if (sig == SIG_TURN) { 
-			send_clue(sock, &packet);
-			// print_clue(&packet);
+			send_clue(sock, &packet, cursor,windows[5]);
+
+			// UI 처리(단서 정보를 모든 플레이어 로그 화면에 출력)
+			print_clue(&packet);
 		}
 		// SIG_DIE가 전송됨
 		else if (sig == SIG_DIE) {

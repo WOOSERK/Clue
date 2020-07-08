@@ -691,7 +691,9 @@ int game_infer(Player_packet **player_packets, int *players, char *answer)
 
 			printf("info: "), leejinsoo(packet.info, 1);
 			printf("position: "), leejinsoo(packet.position, 2);
-			printf("cards: "), leejinsoo(packet.cards[0], 1), leejinsoo(packet.cards[1], 1), leejinsoo(packet.cards[2], 1), leejinsoo(packet.cards[3], 1);
+			printf("cards: \n"), 
+				leejinsoo(packet.cards[0], 1), leejinsoo(packet.cards[1], 1), 
+				leejinsoo(packet.cards[2], 1), leejinsoo(packet.cards[3], 1);
 			printf("dice: "), leejinsoo(packet.dice, 1);
 			printf("infer: "), leejinsoo(packet.infer, 2);
 			printf("after_clue: "), leejinsoo(packet.clue, 1);
@@ -725,11 +727,12 @@ int game_infer(Player_packet **player_packets, int *players, char *answer)
 
 		// 턴플레이어로부터 단서 정보를 기다림
 		packet_recv(players[turn_player], (char *)&packet, NULL);
+		printf("턴플레이어가 단서를 보내야 합니다!!\n");
 		printf("턴플레이어가 보낸 단서 정보 : "), leejinsoo(packet.clue, 1);
 	}
 
 	// 모든 플레이어의 단서를 세팅
-	printf("누군가 낸 단서 : "), leejinsoo(player_packets[player]->clue, 1);
+	printf("누군가(턴플 or 나머지플) 낸 단서 : "), leejinsoo(player_packets[player]->clue, 1);
 	game_set_clue(player_packets, &packet);
 
 	// 모든 플레이어에게 단서가 담긴 패킷 전송
