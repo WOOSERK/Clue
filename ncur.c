@@ -875,19 +875,19 @@ void return_yx(unsigned short position,int *y, int *x){
 	*x = position&0x3;
 }
 
-void return_player_horse(WINDOW ***windows,WINDOW**player, int player_id){
+void return_player_horse(WINDOW ***windows,WINDOW***player, int player_id){
 	switch(player_id){
 		case 0:
-			player = windows[8];
+			*player = windows[8];
 			break;
 		case 1:
-			player = windows[9];
+			*player = windows[9];
 			break;
 		case 2:
-			player = windows[10];
+			*player = windows[10];
 			break;
 		case 3:
-			player = windows[11];
+			*player = windows[11];
 			break;
 		default:
 			break;

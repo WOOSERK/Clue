@@ -128,7 +128,7 @@ int* parse_card_num(char* cards);
 // position 패킷을 보내면 yx에 값을 세팅해서 준다.
 void return_yx(unsigned short position,int *y, int *x);
 // player_id 에 해당하는 말 윈도우 반환
-void return_player_horse(WINDOW ***window,WINDOW **player,int player_id);
+void return_player_horse(WINDOW ***window,WINDOW ***player,int player_id);
 /*방 번호를 전달하면 방의 이름을 반환하는 함수*/
 char* parse_room_name(int room_num);
 #endif
