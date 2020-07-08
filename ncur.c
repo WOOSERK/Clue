@@ -1,52 +1,14 @@
 #include "ncur.h"
 
-typedef struct Cursor{
-	WINDOW **history; // 커서 제어를 위한 history 윈도우
-	WINDOW **log; // 커서 제어를 위한 log 윈도우 
-	char* history_str[STR_ARR_MAX]; // history 로그를 담기 위한 배열
-	char* log_str[STR_ARR_MAX]; // log 로그를 담기위한 배열
-	int history_cnt; // history 로그 개수를 카운트
-	int log_cnt; // log 개수를 카운트
-	WINDOW *command; // 사용자의 커맨드를 출력하는 함수
-}Cursor;
-
+/*
 void run(){
 	initscr();
 	refresh();
 	start_color();
 	color_init();
-/*	char *suspect_str[] ={"KH_Kim","WS_Kim","JS_Kim","WC_Park","JH_Shin","KA_Jeon"};
-	char *room_str[] = {"Kitchen","ClassRoom","RestRoom","Training","Horse","Office"};
-	char *weapon_str[] = {"Knife","Umbrella","Punch","MacBook","Chair","Cable","ZUGA"};
-	int maxx,maxy,width1,height1;
-	getmaxhw(&maxy,&maxx,&height1,&width1);
-	// 아래 window 배열 저장 순서 : layout,maps,places,suspect,weapon
-	WINDOW **windows[10]; 
-	WINDOW **playerList; // 현재 순서인 플레이어를 표기하기위한 디스플레이
-	WINDOW **player1,**player2,**player3,**player4; // 플레이어의 말을 표기하기위한 윈도우 배열
-	windows[0] = make_layout(maxy,maxx,height1,width1); // 레이아웃 잡기
-	windows[1] = make_map(height1,width1); // 맵 그리기
-	playerList = display_player(1,10,5,110);
-	display_background(4*3,14*9,(height1*0.65)+1,3,10);
-	windows[2] = make_infer_clue(room_str,6,(height1*0.65)+1,3,4,14); // 장소추리칸 그리기
-	windows[3] = make_infer_clue(suspect_str,6,(height1*0.65)+5,3,4,14); // 범인 추리칸 그리기
-	windows[4] = make_infer_clue(weapon_str,7,(height1*0.65)+9,3,4,14); // 흉기 추리칸 그리기
-	WINDOW *button = make_button(3,20,(height1*0.65)+5,(6*14)+24,2,"Send infer(y/n)"); // 버튼만들기
-	make_memo(windows[0][1],height1,width1);	
-	WINDOW *clues[6]; // 1번단서 , 2번단서, 3번단서, 4번단서, 선택한 단서 보여주기, 선택버튼
-	display_background(14,50,height1+4,2,10);
-	clues[0] = make_clue(1,2,1);
-	clues[1] = make_clue(2,4,2);
-	clues[2] = make_clue(2,3,3);
-	clues[3] = make_clue(3,5,4);
-	clues[4] = make_button(3,23,height1+7,25,11,"");
-	clues[5] = make_button(3,23,height1+11,25,7,"select_clue_?(y/n)");
 	char my_card[4] = {8+2,16+4,16+3,24+5};
-	WINDOW *dice_display = make_button(3,12,16,95,3,"dice :");
-	dice_num_print(dice_display,2);
-	*/
-	// --------------------------------------- 만드는 부분 ----------------------------
-/*	move_command();
+	WINDOW ***windows = display_init(my_card);
+	move_command();
 
 	Cursor cursor;
 	cursor.history = make_history();
@@ -66,7 +28,7 @@ void run(){
 	pthread_join(pid,NULL);
 
 
-	clue_cursor(clues,my_card);
+	clue_cursor(windows[5],my_card);
 	getchar();
 	
 	int room, suspect, weapon;
@@ -79,24 +41,21 @@ void run(){
 
 	int map_value[2][3]={{0,1,2},{3,4,5}};
 	int curx,cury;
-	int room_num = map_cursor(player1,playerList,0,2,-1,-1);
-	horse_update(player1,room_num,0);	
+	int room_num = map_cursor(windows[8],windows[12],0,2,-1,-1);
+	horse_update(windows[8],room_num,0);	
 
 	calc_yx(room_num,&cury,&curx);
 
-	room_num = map_cursor(player1,playerList,0,2,cury,curx);
-	horse_update(player1,room_num,0);
+	room_num = map_cursor(windows[8],windows[12],0,2,cury,curx);
+	horse_update(windows[8],room_num,0);
 
-	room_num = map_cursor(player2,playerList,1,2,-1,-1);
-	horse_update(player2,room_num,1);	
+	room_num = map_cursor(windows[9],windows[12],1,2,-1,-1);
+	horse_update(windows[9],room_num,1);	
 
-	dice_cursor(playerList[5]);
-*/
-	getchar();
+	dice_cursor(windows[12][5]);
 	endwin();
 }
-
-
+*/
 void color_init(){
 	init_pair(1, COLOR_BLACK, COLOR_WHITE);
 	init_pair(2, COLOR_RED, COLOR_WHITE);
@@ -502,7 +461,6 @@ void horse_update(WINDOW** player,int room_num,int player_num){
 }
 
 int map_cursor(WINDOW **player_room,WINDOW** playerList,int player,int range,int cury,int curx){
-	blink_player(playerList,player);
 	wmove(player_room[6],0,0);
 	wrefresh(player_room[6]);
 	noecho();
@@ -553,7 +511,7 @@ int map_cursor(WINDOW **player_room,WINDOW** playerList,int player,int range,int
 int move_limit(int choice_room,int range,int cury,int curx){
 	int map_value[2][3]={{0,1,2},{3,4,5}};
 	int map[6]={0,};
-	if(cury == -1 && curx == -1 )return 1;
+	if(cury == 3 && curx == 2 )return 1;
 	for(int y = 0 ; y < 2; y ++){
 		for( int x = 0 ; x < 3 ; x ++){
 			if(range >=CAL_RANGE(cury,curx,y,x)){
@@ -794,8 +752,10 @@ void history_log_print(WINDOW** display, char**str, int start_idx,int  str_size)
 }
 
 int str_add(char **str_arry, int add_idx,char* str){
+	size_t len = strlen(str);
 	if( add_idx < STR_ARR_MAX){
-		str_arry[add_idx] = str;
+		str_arry[add_idx] = malloc(sizeof(char)*len);
+		strcpy(str_arry[add_idx],str);
 		return 1;
 	}
 	return -1;
@@ -910,4 +870,47 @@ int* parse_card_num(char* cards){
 	return my_card;
 }
 
+void return_yx(unsigned short position,int *y, int *x){
+	*y = position>>2;
+	*x = position&0x3;
+}
+
+void return_player_horse(WINDOW ***windows,WINDOW**player, int player_id){
+	switch(player_id){
+		case 0:
+			player = windows[8];
+			break;
+		case 1:
+			player = windows[9];
+			break;
+		case 2:
+			player = windows[10];
+			break;
+		case 3:
+			player = windows[11];
+			break;
+		default:
+			break;
+	}
+}
+
+char* parse_room_name(int room_num){
+	switch(room_num){
+		case 0:
+			return "Kitchen";
+		case 1:
+			return "ClassRoom";
+		case 2:
+			return "RestRoom";
+		case 3:
+			return "Office";
+		case 4:
+			return "Horse";
+		case 5:
+			return "Training";
+		case 6:
+			return "RoomOfTruth";
+	}
+	return NULL;
+}
 
