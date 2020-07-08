@@ -30,7 +30,7 @@ int set_dice_in_packet(Player_packet* packet, int dice_value, int choice_value);
 int set_player_in_packet(Player_packet* packet, int player_id, int y, int x);
 int sig_recv(int sock);
 int game_infer(int sock, int player_id,Cursor* cursor,WINDOW ***windows);
-int send_clue(int sock, Player_packet *packet,Cursor *cursor,WINDOW **clue);
+int send_clue(int sock, Player_packet *packet,Cursor *cursor,WINDOW ***windows);
 int print_clue(Player_packet *packet,Cursor *cursor);
 
 
@@ -259,7 +259,7 @@ int game_update(int sock, WINDOW ***windows,Cursor *cursor){// -----------------
 
 
 // packet변수에 서버로부터 라우팅된 단서 패킷이 세팅됨
-int send_clue(int sock, Player_packet *packet,Cursor *cursor,WINDOW **clue) {     						//-------------------------------
+int send_clue(int sock, Player_packet *packet,Cursor *cursor,WINDOW ***windows) {     						//-------------------------------
 	unsigned short scene = PLAYER_INFER_SCENE(packet->infer) >> 10;
 	unsigned short crime = PLAYER_INFER_CRIMINAL(packet->infer) >> 5;
 	unsigned short weapon = PLAYER_INFER_WEAPON(packet->infer);
@@ -295,25 +295,23 @@ int send_clue(int sock, Player_packet *packet,Cursor *cursor,WINDOW **clue) {   
 	// 플레이어가 단서가 있는 경우
 	else {
 		char select_clue;
-	/*	while(1){
-			select_clue = clue_cursor(clue,packet->cards);	
-			mvprintw(2,2,"umm :");
-			refresh();
+		int flag=0;
+		while(1){
+			select_clue = clue_cursor(windows[5],packet->cards);	
 			for(int i = 0 ; i < 4 ; i ++){
-				mvprintw(2,2,"sel : %d",select_clue);
-				refresh();
 				if(select_clue == my_cards[i]){
-					break;
+					flag =1;
 				}
+			}
+			if(flag == 1){
+				break;
 			}
 			char buf[128];
 			sprintf(buf,"Invalid clue.");
 			str_add(cursor->log_str,((cursor->log_cnt)+=1),buf);
-		} */
-		clue_cursor(clue,packet->cards);
-		mvprintw(2,15,"ho");
+		} 
+		mvprintw(1,1,"%d",select_clue);
 		refresh();
-		getchar();
 		packet->clue = select_clue;
 	}
 
@@ -472,7 +470,7 @@ int game_infer(int sock, int player_id,Cursor* cursor,WINDOW ***windows) {
 		// SIG_TURN 이 전송됨
 		// 아무도 단서를 내지 않아 턴플이 단서를 내야되는 경우
 		else { 
-			send_clue(sock, &packet,cursor,windows[5]);
+			send_clue(sock, &packet,cursor,windows);
 			print_clue(&packet,cursor);
 			
 			return 0;
@@ -499,7 +497,7 @@ int game_infer(int sock, int player_id,Cursor* cursor,WINDOW ***windows) {
 
 		// SIG_TURN 을 받음
 		if(sig == SIG_TURN){
-			send_clue(sock, &packet,cursor,windows[5]);
+			send_clue(sock, &packet,cursor,windows);
 			print_clue(&packet,cursor);
 			return 0;
 		}
