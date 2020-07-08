@@ -141,10 +141,11 @@ int packet_recv(int sock, char* packet, int* type)
 	return 0;
 }
 
-void leejinsoo(unsigned int bit)
+
+void leejinsoo(unsigned int bit, int size)
 {
-	unsigned int parse_bit = 0x80000000;
-	for(int bit_num = 31; bit_num >= 0; bit_num--)
+	unsigned int parse_bit = 0x1 << (8*size - 1);
+	for(int bit_num = (8*size)-1; bit_num >= 0; bit_num--)
 	{
 		printf("%u", (bit & parse_bit) >> bit_num);
 		if(bit_num % 8 == 0)
