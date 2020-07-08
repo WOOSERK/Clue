@@ -686,6 +686,7 @@ int game_infer(Player_packet **player_packets, int *players, char *answer)
 
 		// 플레이어는 단서가 있든 없든 SIG_TURN 요청이 오면 무조건 패킷을 보냄
 		if (sig == SIG_TURN) {
+			
 			// 단서 패킷을 받음
 			packet_recv(players[target], (char *)&packet, NULL);
 
@@ -732,8 +733,8 @@ int game_infer(Player_packet **player_packets, int *players, char *answer)
 	}
 
 	// 모든 플레이어의 단서를 세팅
-	printf("누군가(턴플 or 나머지플) 낸 단서 : "), leejinsoo(player_packets[player]->clue, 1);
 	game_set_clue(player_packets, &packet);
+	printf("누군가(턴플 or 나머지플) 낸 단서 : "), leejinsoo(player_packets[player]->clue, 1);
 
 	// 모든 플레이어에게 단서가 담긴 패킷 전송
 	game_route_packet(player_packets, players);
@@ -784,9 +785,14 @@ int main()
 
 		// 턴 플레이어를 변경(비트 세팅)
 		game_next_turn(player_packets);
+
+		// 다음 턴이 어떤 플레이어인지 말해주는 패킷을 
+		// 모든 플레이어에게 전송
+		game_route_packet(player_packets, players);
 	}
 
 	// 끝
 	END_GAME(player_packets, players, answer, ssock);
 	return 0;
 }
+
