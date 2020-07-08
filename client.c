@@ -150,9 +150,6 @@ int roll_and_go(int sock, int player_id, WINDOW ***windows,Player_packet *packet
 	// 서버에게 roll_and_go 정보를 전송
 	packet_send(sock, (char*)packet, &type);
 
-	mvwprintw(windows[1][0],1,0,"select : %d",PLAYER_SELECT_VALUE(packet->dice));
-	wrefresh(windows[1][0]);
-
 	return 0;
 }
 
