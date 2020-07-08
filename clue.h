@@ -141,7 +141,6 @@ int packet_recv(int sock, char* packet, int* type)
 	return 0;
 }
 
-
 void leejinsoo(unsigned int bit, int size)
 {
 	unsigned int parse_bit = 0x1 << (8*size - 1);

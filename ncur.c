@@ -1,3 +1,6 @@
+
+#include "ncur.h"
+
 #include <ncurses.h>
 #include <pthread.h>
 #include <stdlib.h>
@@ -93,6 +96,7 @@ void move_command();
 /* 주사위 값을 출력한다.  window : 주사위 숫자를 출력 할 함수, num : 나온 숫자*/ 
 void dice_num_print(WINDOW *window, int num);
 
+
 typedef struct Cursor{
 	WINDOW **history; // 커서 제어를 위한 history 윈도우
 	WINDOW **log; // 커서 제어를 위한 log 윈도우 
@@ -108,12 +112,20 @@ void run(){
 	refresh();
 	start_color();
 	color_init();
-	char *suspect_str[] ={"KH_Kim","WS_Kim","JS_Kim","WC_Park","JH_Shin","KA_Jeon"};
+
+/*	char *suspect_str[] ={"KH_Kim","WS_Kim","JS_Kim","WC_Park","JH_Shin","KA_Jeon"};
+
+
+
 	char *room_str[] = {"Kitchen","ClassRoom","RestRoom","Training","Horse","Office"};
 	char *weapon_str[] = {"Knife","Umbrella","Punch","MacBook","Chair","Cable","ZUGA"};
 	int maxx,maxy,width1,height1;
 	getmaxhw(&maxy,&maxx,&height1,&width1);
-	/* 아래 window 배열 저장 순서 : layout,maps,places,suspect,weapon*/
+
+	// 아래 window 배열 저장 순서 : layout,maps,places,suspect,weapon
+
+
+
 	WINDOW **windows[10]; 
 	WINDOW **playerList; // 현재 순서인 플레이어를 표기하기위한 디스플레이
 	WINDOW **player1,**player2,**player3,**player4; // 플레이어의 말을 표기하기위한 윈도우 배열
@@ -137,12 +149,17 @@ void run(){
 	char my_card[4] = {8+2,16+4,16+3,24+5};
 	WINDOW *dice_display = make_button(3,12,16,95,3,"dice :");
 	dice_num_print(dice_display,2);
+
+	*/
+  
+	// --------------------------------------- 만드는 부분 ----------------------------
+/*	move_command();
+
 	Cursor cursor;
 	cursor.history = make_history();
 	cursor.log = make_log();
 	cursor.command = make_button(3,25,COMMAND_Y,COMMAND_X,2,"Your Command : ");
-	// --------------------------------------- 만드는 부분 ----------------------------
-	move_command();
+
 	getchar();
 	cursor.history_str[0]="000";
 	cursor.history_str[1]="111";
@@ -156,12 +173,33 @@ void run(){
 	pthread_create(&pid,NULL,move_cursor,(void*)&cursor);
 	pthread_join(pid,NULL);
 
-	player1=make_horse(0);
-	player2=make_horse(1);
-	player3=make_horse(2);
-	player4=make_horse(3);
-
 	clue_cursor(clues,my_card);
+	getchar();
+	
+	int room, suspect, weapon;
+	while(1){
+		if((room = infer_cursor(1)) == -1 ){continue;}
+		if((suspect = infer_cursor(2)) == -1 ){continue;}
+		if((weapon = infer_cursor(3)) == -1 ){continue;}
+		break;
+	}
+
+	int map_value[2][3]={{0,1,2},{3,4,5}};
+	int curx,cury;
+	int room_num = map_cursor(player1,playerList,0,2,-1,-1);
+	horse_update(player1,room_num,0);	
+
+	calc_yx(room_num,&cury,&curx);
+
+	room_num = map_cursor(player1,playerList,0,2,cury,curx);
+	horse_update(player1,room_num,0);
+
+	room_num = map_cursor(player2,playerList,1,2,-1,-1);
+	horse_update(player2,room_num,1);	
+
+	dice_cursor(playerList[5]);
+*/
+
 	getchar();
 	
 	int room, suspect, weapon;
@@ -191,10 +229,19 @@ void run(){
 
 }
 
-int main(int argc, char *argv[])
-{
-	run();
-	return 0;
+void color_init(){
+	init_pair(1, COLOR_BLACK, COLOR_WHITE);
+	init_pair(2, COLOR_RED, COLOR_WHITE);
+	init_pair(3, COLOR_YELLOW, COLOR_WHITE);
+	init_pair(4, COLOR_GREEN, COLOR_WHITE);
+	init_pair(5, COLOR_BLUE, COLOR_WHITE);
+	init_pair(6, COLOR_MAGENTA, COLOR_WHITE);
+	init_pair(7, COLOR_CYAN, COLOR_WHITE);
+	init_pair(8, COLOR_WHITE, COLOR_BLACK);
+	init_pair(9, COLOR_BLACK,COLOR_YELLOW);
+	init_pair(10, COLOR_BLACK,COLOR_CYAN);
+	init_pair(11, COLOR_BLACK,COLOR_MAGENTA);
+	init_pair(12,COLOR_BLACK,COLOR_GREEN);
 }
 
 void color_init(){
@@ -648,6 +695,7 @@ int map_cursor(WINDOW **player_room,WINDOW** playerList,int player,int range,int
 		}
 	}
 }
+
 int move_limit(int choice_room,int range,int cury,int curx){
 	int map_value[2][3]={{0,1,2},{3,4,5}};
 	int map[6]={0,};
@@ -924,6 +972,88 @@ void* move_cursor(void *arg){
 				break;
 		}
 	}
+}
+
+int input_command(WINDOW *command){
+	noecho();
+	cbreak();
+	keypad(stdscr,TRUE);
+	wmove(command,1,18);
+	wrefresh(command);
+	int ch = getch();
+	mvwprintw(command,1,18,"  ");
+	wattrset(command,A_BOLD|COLOR_PAIR(1));
+	mvwprintw(command,1,18,"%c",ch);
+	wrefresh(command);
+	refresh();
+	return ch;
+}
+
+void move_command(){
+	move(COMMAND_Y+1,COMMAND_X+18);
+	refresh();
+}
+
+void dice_num_print(WINDOW *window, int num){
+	wattrset(window,A_BOLD|A_BLINK|COLOR_PAIR(1));
+	mvwprintw(window,1,9,"%d",num);
+	wrefresh(window);
+	move_command();
+}
+
+WINDOW*** display_init(char* card){
+	char *suspect_str[] ={"KH_Kim","WS_Kim","JS_Kim","WC_Park","JH_Shin","KA_Jeon"};
+	char *room_str[] = {"Kitchen","ClassRoom","RestRoom","Training","Horse","Office"};
+	char *weapon_str[] = {"Knife","Umbrella","Punch","MacBook","Chair","Cable","ZUGA"};
+	int maxx,maxy,width1,height1;
+	getmaxhw(&maxy,&maxx,&height1,&width1);
+	/* 아래 window 배열 저장 순서 : layout,maps,places,suspect,weapon*/
+	WINDOW ***windows = malloc(sizeof(WINDOW**)*13);; 
+	windows[0] = make_layout(maxy,maxx,height1,width1); // 레이아웃 잡기
+	windows[1] = make_map(height1,width1); // 맵 그리기
+	display_background(4*3,14*9,(height1*0.65)+1,3,10);
+	windows[2] = make_infer_clue(room_str,6,(height1*0.65)+1,3,4,14); // 장소추리칸 그리기
+	windows[3] = make_infer_clue(suspect_str,6,(height1*0.65)+5,3,4,14); // 범인 추리칸 그리기
+	windows[4] = make_infer_clue(weapon_str,7,(height1*0.65)+9,3,4,14); // 흉기 추리칸 그리기
+
+	make_memo(windows[0][1],height1,width1);	
+
+	int *my_card = parse_card_num(card);
+	WINDOW *clues[6]; // 1번단서 , 2번단서, 3번단서, 4번단서, 선택한 단서 보여주기, 선택버튼
+	display_background(14,50,height1+4,2,10);
+	for(int i=0 ; i < 4 ; i ++){
+		clues[i] = make_clue(my_card[i*2],my_card[i*2+1],i+1);
+	}
+	clues[4] = make_button(3,23,height1+7,25,11,"");
+	clues[5] = make_button(3,23,height1+11,25,7,"select_clue_?(y/n)");
+	windows[5] = clues;
+
+	windows[6] = make_history();
+	windows[7] = make_log();
+
+	windows[8] = make_horse(0);
+	windows[9] = make_horse(1);
+	windows[10] = make_horse(2);
+	windows[11] = make_horse(3);
+	windows[12] = display_player(1,10,5,110);
+
+	WINDOW *buttons[3];
+	buttons[0] = make_button(3,20,(height1*0.65)+5,(6*14)+24,2,"Send infer(y/n)"); // 버튼만들기
+	buttons[1] = make_button(3,12,16,95,3,"dice :");
+	buttons[2] =  make_button(3,25,COMMAND_Y,COMMAND_X,2,"Your Command : ");
+
+	windows[13] = buttons;
+
+	return windows;
+}
+
+int* parse_card_num(char* cards){
+	int *my_card = malloc(sizeof(int)*8);
+	for(int i = 0 ; i < 4 ; i++){
+		my_card[i*2]=PARSE_CATE(cards[i]);
+		my_card[(i*2)+1]=PARSE_CARD(cards[i]);
+	}
+	return my_card;
 }
 
 int input_command(WINDOW *command){
