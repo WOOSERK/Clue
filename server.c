@@ -195,7 +195,6 @@ int game_set_turn(Player_packet** player_packets)
 		}
 	}	
 
-
 	int cur_turn_player = PLAYER_TURN_PLAYER(temp_packet->info) >> 4;
 	printf("cur_turn_player: %d\n", cur_turn_player);
 
@@ -623,6 +622,10 @@ int game_infer(Player_packet **player_packets, int *players, char *answer)
 	// 턴플레이어에게 SIG_INFR 전송
 	// 나머지 플레이어에게는 SIG_WAIT 전송
 	game_send_signal(players, SIG_INFR, SIG_WAIT, turn_player);
+
+	// 턴플레이어에게 진실의 방에 있는 지에 대한 정보를 알려주기위해 패킷을 전송
+	int type = PACKET;
+	packet_send(players[turn_player], (char *)player_packets[turn_player], &type);
 
 	// 턴플의 추리패킷을 서버가 받음
 	Player_packet infer_packet;

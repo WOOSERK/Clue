@@ -448,6 +448,8 @@ WINDOW** make_horse(int player_num){
 	return maps;
 }
 void horse_update(WINDOW** player,int room_num,int player_num){
+	werase(player[7]);
+	wrefresh(player[7]);
 	char buf[2];
 	sprintf(buf,"%d",player_num+1);
 	for(int i = 0 ; i < PLACE_NUM+1;i ++){
@@ -494,8 +496,6 @@ int map_cursor(WINDOW **player_room,WINDOW** playerList,int player,int range,int
 					wrefresh(playerList[6]);
 					ch = getch();
 					if(ch == 'y' || ch == 'Y'){
-						werase(player_room[7]);
-						wrefresh(player_room[7]);
 						move_command();
 						return cnt; 
 					}
@@ -617,6 +617,7 @@ char clue_cursor(WINDOW** window,char* cards){
 }
 
 void display_select_card(WINDOW* display_card, char card){
+	refresh();
 	int cate,card_num;
 	cate = PARSE_CATE(card);
 	card_num = PARSE_CARD(card);
@@ -833,7 +834,7 @@ WINDOW*** display_init(char* card){
 	make_memo(windows[0][1],height1,width1);	
 
 	int *my_card = parse_card_num(card);
-	WINDOW *clues[6]; // 1번단서 , 2번단서, 3번단서, 4번단서, 선택한 단서 보여주기, 선택버튼
+	WINDOW **clues = malloc(sizeof(WINDOW*)*6); // 1번단서 , 2번단서, 3번단서, 4번단서, 선택한 단서 보여주기, 선택버튼
 	display_background(14,50,height1+4,2,10);
 	for(int i=0 ; i < 4 ; i ++){
 		clues[i] = make_clue(my_card[i*2],my_card[i*2+1],i+1);
@@ -851,7 +852,7 @@ WINDOW*** display_init(char* card){
 	windows[11] = make_horse(3);
 	windows[12] = display_player(1,10,5,110);
 
-	WINDOW *buttons[3];
+	WINDOW **buttons = malloc(sizeof(WINDOW*)*3);;
 	buttons[0] = make_button(3,20,(height1*0.65)+5,(6*14)+24,2,"Send infer(y/n)"); // 버튼만들기
 	buttons[1] = make_button(3,12,16,95,3,"dice :");
 	buttons[2] =  make_button(3,25,COMMAND_Y,COMMAND_X,2,"Your Command : ");
@@ -871,8 +872,8 @@ int* parse_card_num(char* cards){
 }
 
 void return_yx(unsigned short position,int *y, int *x){
-	*y = position>>2;
-	*x = position&0x3;
+	*x = position>>2;
+	*y = position&0x3;
 }
 
 void return_player_horse(WINDOW ***windows,WINDOW***player, int player_id){

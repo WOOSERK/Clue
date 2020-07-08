@@ -28,10 +28,6 @@ int game_infer(int sock, int player_id,Cursor* cursor,WINDOW ***windows);
 int send_clue(int sock, Player_packet *packet,Cursor *cursor,WINDOW ***windows);
 int print_clue(Player_packet *packet,Cursor *cursor);
 
-// int ui_update(Player_packet* );
-// int change_player_position(WINDOW* window, Player_packet* player_pakcet);
-// int clue_you_got(char* clue);
-
 
 int main(){
 	
@@ -393,7 +389,7 @@ int print_clue(Player_packet *packet,Cursor *cursor) {
 	return 0;
 }
 
-int game_infer(int sock, int player_id,Cursor* cursor,WINDOW ***windows) {
+int game_infer(int sock, int player_id, Cursor* cursor, WINDOW ***windows) {
 	
 	int sig;
 	int type;
@@ -408,7 +404,22 @@ int game_infer(int sock, int player_id,Cursor* cursor,WINDOW ***windows) {
 		// 정하는 함수를 만든뒤 패킷에 담는다. 그런 다음에 packet_send를 한다.
 		Player_packet packet = {0,};
 
-		short scene,crime,weapon;
+		// 플레이어가 진실의 방에 있는 지를 확인하기 위해 서버로부터 패킷을 받아옴
+		if (packet_recv(sock, (char*)&packet, NULL) == -1) {
+			return -1;
+		}
+
+		// 경안이랑 같이 할테니 기다리도록....
+		unsigned short position_bit = PLAYER_POSITION(packet->position, player_id);
+		position_bit >>= (4 * (3 - player_id));
+
+		// 진실의 방이라면
+		// x:3, y:3
+		if(position_bit == 0xF)
+		{
+		}
+
+		short scene, crime, weapon;
 		while(1){	
 			/// 진실의 방이 아닌 경우 인자가 1인 함수 실행 안하고 셀렉트 다이스 값으로 room을 셋팅합니다.
 			if ((scene = infer_cursor(1)) == -1) { continue; }
@@ -471,7 +482,7 @@ int game_infer(int sock, int player_id,Cursor* cursor,WINDOW ***windows) {
 		// SIG_TURN이 전송됨
 		// 아무도 단서를 내지 않아 턴플이 단서를 내야되는 경우
 		else if (sig == SIG_TURN) { 
-			send_clue(sock, &packet, cursor,windows[5]);
+			send_clue(sock, &packet, cursor, windows);
 
 			// UI 처리(단서 정보를 모든 플레이어 로그 화면에 출력)
 			print_clue(&packet, cursor);
@@ -539,24 +550,5 @@ int game_infer(int sock, int player_id,Cursor* cursor,WINDOW ***windows) {
 	return 0;
 }
 
-// int ui_update(Player_packet* player_packet){
-// 	change_player_position();
-// 	set_my_amazing_cards();
-// 	set_our_amazing_jeahyeon_history();
-// 	set_our_amazing_jeahyeon_log();
-// 
-// 	return 0;
-// }
-// int change_player_position(WINDOW* window, Player_packet* player_packet){
-// 
-// }
-// int set_my_amazing_cards(WINDOW* window, Player_packet* player_packet){
-// 
-// }
-// int set_our_amazing_jeahyeon_history(){
-// 
-// }
-// int set_our_amazing_jeahyeon_log(){
-// 
-// }
+
 
