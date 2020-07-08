@@ -66,7 +66,6 @@ int client_connect(void){
 	struct sockaddr_in addr = {0,};
 	addr.sin_family = AF_INET;
 	addr.sin_port = htons(8080);
-
 	addr.sin_addr.s_addr = inet_addr("192.168.30.31"); // 서버주소
 	
 	if(connect(sock, (struct sockaddr *)&addr, sizeof(addr)) == -1){
@@ -181,10 +180,7 @@ int game_init(int sock, int *player_id) {
 	packet_recv(sock,(char*)&packet, NULL);
 	
 	// ui_update(player); 
-
 	display_init(packet.cards);	 // 경안₩
-
-
 
 	*player_id = PLAYER_ID(packet.info);
 
@@ -227,7 +223,6 @@ int send_clue(int sock, Player_packet *packet) {
 	unsigned short scene = PLAYER_INFER_SCENE(packet->infer) >> 10;
 	unsigned short crime = PLAYER_INFER_CRIMINAL(packet->infer) >> 5;
 	unsigned short weapon = PLAYER_INFER_WEAPON(packet->infer);
-
 
 	//printf("scene(send_clue): %hd\n", scene);
 	//printf("crime(send_clue): %hd\n", crime);
@@ -391,19 +386,15 @@ int game_infer(int sock, int player_id) {
 		// SIG_DONE이 전송됨
 		// 턴플을 제외한 나머지 플레이어 중 하나가 단서를 제출한 경우
 		if (sig == SIG_DONE){
-
 			printf("누군가 단서를 냈습니다. 턴플레이어는 단서를 받으세요\n");
 
 			// 서버로부터 단서 패킷을 받음
 			if(packet_recv(sock, (char*)&packet, NULL) == -1){
 				return -1;
 			}
-			int clue_player_id = PLAYER_CLUE_PLAYER(packet.clue) >> 5;
 
 			// UI 처리(단서 정보를 플레이어 화면에 출력)
 			print_clue(&packet);
-			return 0;
-
 		}
 		// SIG_TURN 이 전송됨
 		// 아무도 단서를 내지 않아 턴플이 단서를 내야되는 경우
@@ -411,7 +402,6 @@ int game_infer(int sock, int player_id) {
 			printf("턴플레이어가 단서를 내야 됩니다\n");
 			send_clue(sock, &packet);
 			print_clue(&packet);
-
 		}
 		return 0;
 	}
@@ -441,10 +431,8 @@ int game_infer(int sock, int player_id) {
 			print_clue(&packet);
 			return 0;
 		}
-
 		// SIG_DONE 을 받음
 		else{ 
-
 			printf("이미 누가 단서를 제출했습니다.\n");
 
 			// 서버로부터 단서 패킷을 받음
@@ -459,10 +447,9 @@ int game_infer(int sock, int player_id) {
 			// 쉽지 않은 길이었다.
 			// 이제 너의 이야기다.
 			// 자, 펼쳐라. 너의 꿈을...!
-			
-			return 0;
 		}
 	}
+	return 0;
 }
 
 int clue_you_got(char* clue){
