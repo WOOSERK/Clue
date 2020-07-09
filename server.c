@@ -599,7 +599,7 @@ char* parse_card(int category, int card_num){
 
 // 반환값
 // SIG_WIN : 턴플레이어가 이김
-// SIG_DIE : 턴플레이어가 찍~
+// SIG_DIE : 턴플레이어가 죽음
 int game_infer(Player_packet **player_packets, int *players, char *answer) 
 {
 	if (player_packets == NULL || players == NULL || answer == NULL) {
@@ -719,7 +719,7 @@ int game_infer(Player_packet **player_packets, int *players, char *answer)
 	// sig가 SIG_TURN : 한바퀴 돌아서 턴 플레이어가 단서를 제출해야함
 	// sig가 SIG_DONE : 다른 플레이어가 단서를 제출함
 	int player = clue_player;
-	int type = SIGNAL;
+	type = SIGNAL;
 	packet_send(players[turn_player], (char *)&sig, &type);
 
 	// 다른 플레이어 중 아무도 단서를 내지 않은 경우

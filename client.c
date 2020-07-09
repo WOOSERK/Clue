@@ -30,7 +30,9 @@ int print_clue(Player_packet *packet,Cursor *cursor);
 
 
 int main(){
-	
+
+	system("reset");
+
 	int sock = client_connect();
 	if (sock == -1) {
 		return -1;
@@ -127,8 +129,8 @@ int game_play(int sock, int player_id, Player_packet *packet) {
 		}
 	
  		// 해당 패킷은 다음 턴이 어떤 플레이어인지 말해주는 용도
-		// packet_recv(sock, (char*)packet, NULL);
-		// 다음턴이 누구인지 로그 화면에 출력
+		// 이 패킷을 가지고 다음 턴의 플레이어가 누구인지 화면에 출력해야함
+		packet_recv(sock, (char*)packet, NULL);
 	}
 	return 0;
 }
@@ -410,11 +412,10 @@ int game_infer(int sock, int player_id, Cursor* cursor, WINDOW ***windows) {
 		}
 
 		// 경안이랑 같이 할테니 기다리도록....
-		unsigned short position_bit = PLAYER_POSITION(packet->position, player_id);
+		unsigned short position_bit = PLAYER_POSITION(packet.position, player_id);
 		position_bit >>= (4 * (3 - player_id));
 
-		// 진실의 방이라면
-		// x:3, y:3
+		// 진실의 방(x:3, y:3)이라면
 		if(position_bit == 0xF)
 		{
 		}
