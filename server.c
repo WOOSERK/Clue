@@ -91,6 +91,7 @@ int game_set_position(Player_packet** player_packets, Player_packet* player_pack
 		return -1;
 	}
 
+	leejinsoo(player_packet->position, 2);
 	short position_bit = player_packet->position;
 	for(int player_num = 0; player_num < PLAYER_CNT; player_num++) {
 		if (player_packets[player_num] != NULL) {
@@ -111,7 +112,7 @@ int game_init_players(Player_packet** player_packets)
 	}
 
 	Player_packet position_packet = {0,};
-	position_packet.position = 0x5555;
+	position_packet.position = 0xbbbb;
 	player_packets[0]->info |= 0x8;
 
 	// 플레이어의 식별 번호를 패킷에 할당한다.
@@ -120,7 +121,7 @@ int game_init_players(Player_packet** player_packets)
 		printf("PLAYER_ID: %d\n", PLAYER_ID(player_packets[player_num]->info));
 	}
 
-	// 모든 플레이어를 x:1, y:1로 설정
+	// 모든 플레이어를 x:2, y:3로 설정
 	game_set_position(player_packets, &position_packet);
 
 	return 0;
@@ -196,8 +197,6 @@ int game_set_turn(Player_packet** player_packets)
 	}	
 
 	int cur_turn_player = PLAYER_TURN_PLAYER(temp_packet->info) >> 4;
-	printf("cur_turn_player: %d\n", cur_turn_player);
-
 	int next_turn_player;
 
 	char turn_bit = 0x8;
@@ -212,7 +211,8 @@ int game_set_turn(Player_packet** player_packets)
 		}
 	}
 
-	printf("next_turn_player: %d\n", next_turn_player);
+	printf("CUR_TURN_PLAYER: %d\n", cur_turn_player);
+	printf("NEXT_TURN_PLAYER: %d\n", next_turn_player);
 
 	for (int i = 0; i < PLAYER_CNT; i++) {
 		if (player_packets[i] != NULL) {
@@ -520,10 +520,12 @@ int game_roll_and_go(Player_packet** player_packets, int *players)
 	// 턴 플레이어로부터 주사위+선택값, 위치값이 변경된 패킷을 받는다.
 	Player_packet packet = {0,};
 	packet_recv(players[turn_player], (char *)&packet, NULL);
+	printf("TURN'S POSITION: "), leejinsoo(PLAYER_POSITION(player_packets[turn_player]->position, turn_player), 2);
 
 	// 각 플레이어의 패킷에 반영한다.
 	game_set_dice(player_packets, &packet);	
 	game_set_position(player_packets, &packet);
+	printf("TURN'S POSITION: "), leejinsoo(PLAYER_POSITION(player_packets[turn_player]->position, turn_player), 2);
 
 	// 다음 단계(추리)로 변경한다.
 	game_set_phase(player_packets);
@@ -657,6 +659,8 @@ int game_infer(Player_packet **player_packets, int *players, char *answer)
 	// x:3, y:3
 	if(position_bit == 0xF)
 	{
+		printf("진실의 방 입장!\n");
+
 		int ret = game_ROOM_OF_TRUTH(player_packets, players, turn_player, answer);
 		// 게임종료(답 맞음)
 		if (ret == SIG_WIN) {
@@ -692,7 +696,8 @@ int game_infer(Player_packet **player_packets, int *players, char *answer)
 			
 			// 단서 패킷을 받음
 			packet_recv(players[target], (char *)&packet, NULL);
-
+		
+			/*
 			printf("info: "), leejinsoo(packet.info, 1);
 			printf("position: "), leejinsoo(packet.position, 2);
 			printf("cards: \n"), 
@@ -701,13 +706,16 @@ int game_infer(Player_packet **player_packets, int *players, char *answer)
 			printf("dice: "), leejinsoo(packet.dice, 1);
 			printf("infer: "), leejinsoo(packet.infer, 2);
 			printf("after_clue: "), leejinsoo(packet.clue, 1);
+			*/
 
 			printf("\n\n");
 			if (packet.clue != 0) {
+				printf("%d 플레이어는 단서가 있습니다\n", PLAYER_ID(packet.info));
 				printf("SIG_DONE으로 세팅됨!!\n");
 				clue_player = target;
 				sig = SIG_DONE;
 			}
+			printf("%d 플레이어가 단서를 제출했습니다\n", PLAYER_ID(packet.info));
 		}
 	}
 	

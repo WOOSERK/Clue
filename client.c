@@ -92,8 +92,7 @@ int game_play(int sock, int player_id, Player_packet *packet) {
 	cursor.log = windows[7];
 	cursor.history_cnt = 0;
 	cursor.log_cnt = 0;
-	cursor.command = windows[13][2];
-
+	cursor.command = windows[13][2]; 
 	// 이후 클라이언트는 packet_recv로 대기한다. 
 	// 서버는 SIG_TURN 또는 SIG_WAIT을 보낼 것이다.
 	while(1){
@@ -418,6 +417,7 @@ int game_infer(int sock, int player_id, Cursor* cursor, WINDOW ***windows) {
 		// 진실의 방(x:3, y:3)이라면
 		if(position_bit == 0xF)
 		{
+
 		}
 
 		short scene, crime, weapon;
@@ -500,11 +500,10 @@ int game_infer(int sock, int player_id, Cursor* cursor, WINDOW ***windows) {
 			printf("%d플레이어 승리!!\n", PLAYER_TURN_PLAYER(packet.info) >> 4);
 			return SIG_WIN;
 		}
-		return 0;
 	}
 
 	// 플레이어가 SIG_WAIT을 받은 경우 : 턴플레이어가 아닌 다른 플레이어
-	else{   
+	else {    
 		Player_packet packet = {0,};
 
 		// 서버로부터 라우팅된 추리정보가 담긴 턴플레이어의 패킷을 받음
