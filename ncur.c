@@ -745,14 +745,15 @@ void history_log_cursor(WINDOW **window,char **str, int str_size){
 }
 
 void history_log_print(WINDOW** display, char**str, int start_idx,int  str_size){
+	int cnt = 6;
 	for(int i = start_idx; i > start_idx-7; i--)
 	{
 		if(i < 0)
 			break;
-		werase(display[i]);
-		wattrset(display[i], A_BOLD);
-		mvwaddstr(display[i], 1, 1, str[i]);
-		wrefresh(display[i]);
+		werase(display[cnt--]);
+		wattrset(display[cnt--], A_BOLD);
+		mvwaddstr(display[cnt--], 1, 1, str[i]);
+		wrefresh(display[cnt--]);
 	}
 	return ;
 }
@@ -824,8 +825,7 @@ WINDOW*** display_init(char* card, int player_id){
 	getmaxhw(&maxy,&maxx,&height1,&width1);
 	/* 아래 window 배열 저장 순서 : layout,maps,places,suspect,weapon*/
 	char user[32];
-	sprintf(user,"you are player%d",player_id);
-	WINDOW *player = make_button(3,20,1,1,player_id,user);
+	sprintf(user,"you are player%d",player_id+1);
 	
 	WINDOW ***windows = malloc(sizeof(WINDOW**)*13);; 
 	windows[0] = make_layout(maxy,maxx,height1,width1); // 레이아웃 잡기
@@ -862,6 +862,7 @@ WINDOW*** display_init(char* card, int player_id){
 	buttons[2] =  make_button(3,25,COMMAND_Y,COMMAND_X,2,"Your Command : ");
 
 	windows[13] = buttons;
+	WINDOW *player = make_button(3,20,1,1,1,user);
 
 	return windows;
 }
