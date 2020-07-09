@@ -470,6 +470,7 @@ int map_cursor(WINDOW **player_room,WINDOW** playerList,int player,int range,int
 	keypad(stdscr,TRUE);
 	int ch;
 	int cnt=PLACE_NUM;
+	int flag = 0;
 	while(1){
 		ch = getch();
 		switch(ch){
@@ -491,7 +492,7 @@ int map_cursor(WINDOW **player_room,WINDOW** playerList,int player,int range,int
 				break;
 			default:
 				if( ch == 's'){
-					if(move_limit(cnt,range-1,cury,curx) == -1){break;}
+					if(move_limit(cnt,range-1,cury,curx) == -1){	break;}
 					wmove(playerList[6],1,2);
 					wrefresh(playerList[6]);
 					ch = getch();
@@ -511,7 +512,7 @@ int map_cursor(WINDOW **player_room,WINDOW** playerList,int player,int range,int
 int move_limit(int choice_room,int range,int cury,int curx){
 	int map_value[2][3]={{0,1,2},{3,4,5}};
 	int map[6]={0,};
-	if(cury == 3 && curx == 2 )return 1;
+	if(cury == 3&&curx == 2 ){return 1;}
 	for(int y = 0 ; y < 2; y ++){
 		for( int x = 0 ; x < 3 ; x ++){
 			if(range >=CAL_RANGE(cury,curx,y,x)){
@@ -652,6 +653,8 @@ int calc_yx(int room_num, int *cury, int *curx){
 }
 
 void dice_cursor(WINDOW* dice_button){
+	noecho();
+	cbreak();
 	wmove(dice_button,1,2);
 	wrefresh(dice_button);
 	int ch;
@@ -696,13 +699,15 @@ WINDOW** make_log(){
 }
 
 void history_log_cursor(WINDOW **window,char **str, int str_size){
-	int start_idx=0;
+	int start_idx=str_size-1;;
+	str_size = sizeof(str)/sizeof(str[0]);
 	noecho();
 	cbreak();
 	keypad(stdscr,TRUE);
 	int ch;
 	int cnt=HISTORY_MAX-1;
 	history_log_print(window,str,start_idx,str_size);
+
 	wmove(window[HISTORY_MAX-1],1,1);
 	wrefresh(window[HISTORY_MAX-1]);
 	while(1){
@@ -712,7 +717,7 @@ void history_log_cursor(WINDOW **window,char **str, int str_size){
 				cnt ++;
 				if(cnt >= HISTORY_MAX){
 					start_idx++;
-					start_idx = (start_idx+6) < str_size ? start_idx : --start_idx;
+					start_idx = start_idx >= str_size ? str_size : start_idx;
 					cnt = HISTORY_MAX-1;
 					history_log_print(window,str,start_idx,str_size);
 				}
@@ -723,7 +728,7 @@ void history_log_cursor(WINDOW **window,char **str, int str_size){
 				cnt--;
 				if(cnt < 0){
 					start_idx--;
-					start_idx = start_idx < 0 ? 0 : start_idx;
+					start_idx = start_idx-6 <= 0 ? 6 : start_idx;
 					cnt = 0;
 					history_log_print(window,str,start_idx,str_size);
 				}
@@ -740,14 +745,14 @@ void history_log_cursor(WINDOW **window,char **str, int str_size){
 }
 
 void history_log_print(WINDOW** display, char**str, int start_idx,int  str_size){
-	start_idx += str_size < 7 ? str_size-1 : 7;
-	for(int i = HISTORY_MAX-1 ; i >= 0 ; i--){
-		if(0 <= start_idx){
-			werase(display[i]);
-			wattrset(display[i],A_BOLD);
-			mvwaddstr(display[i],1,1,str[start_idx--]);
-			wrefresh(display[i]);
-		}
+	for(int i = start_idx; i > start_idx-7; i--)
+	{
+		if(i < 0)
+			break;
+		werase(display[i]);
+		wattrset(display[i], A_BOLD);
+		mvwaddstr(display[i], 1, 1, str[i]);
+		wrefresh(display[i]);
 	}
 	return ;
 }
@@ -780,11 +785,6 @@ void* move_cursor(void *arg){
 			case 'm':
 				memo_cursor();
 				break;
-			default:
-				if(ch == 'q'){
-					return NULL;
-				}
-				break;
 		}
 	}
 }
@@ -816,13 +816,17 @@ void dice_num_print(WINDOW *window, int num){
 	move_command();
 }
 
-WINDOW*** display_init(char* card){
+WINDOW*** display_init(char* card, int player_id){
 	char *suspect_str[] ={"KH_Kim","WS_Kim","JS_Kim","WC_Park","JH_Shin","KA_Jeon"};
 	char *room_str[] = {"Kitchen","ClassRoom","RestRoom","Training","Horse","Office"};
 	char *weapon_str[] = {"Knife","Umbrella","Punch","MacBook","Chair","Cable","ZUGA"};
 	int maxx,maxy,width1,height1;
 	getmaxhw(&maxy,&maxx,&height1,&width1);
 	/* 아래 window 배열 저장 순서 : layout,maps,places,suspect,weapon*/
+	char user[32];
+	sprintf(user,"you are player%d",player_id);
+	WINDOW *player = make_button(3,20,1,1,player_id,user);
+	
 	WINDOW ***windows = malloc(sizeof(WINDOW**)*13);; 
 	windows[0] = make_layout(maxy,maxx,height1,width1); // 레이아웃 잡기
 	windows[1] = make_map(height1,width1); // 맵 그리기
