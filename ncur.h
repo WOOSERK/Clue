@@ -122,7 +122,7 @@ void move_command();
 /* 주사위 값을 출력한다.  window : 주사위 숫자를 출력 할 함수, num : 나온 숫자*/ 
 void dice_num_print(WINDOW *window, int num);
 // 디스플레이 초기화
-WINDOW*** display_init(char *card); 
+WINDOW*** display_init(char *card,int player_id); 
 // 카드 배열을 보내면 파싱을 해서 숫자로 뽑아낸다.
 int* parse_card_num(char* cards);
 // position 패킷을 보내면 yx에 값을 세팅해서 준다.
