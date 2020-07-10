@@ -4,6 +4,8 @@
 #include <pthread.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
+#include <unistd.h>
 #define NUM_ABS(a,b) ((a-b) < 0 ? ((-1)*(a-b)) : (a-b))
 #define CAL_RANGE(cury,curx,y,x) (NUM_ABS(cury,y)+NUM_ABS(curx,x))
 #define PARSE_CATE(card) (((card>>3)&0x3))
@@ -131,4 +133,6 @@ void return_yx(unsigned short position,int *y, int *x);
 void return_player_horse(WINDOW ***window,WINDOW ***player,int player_id);
 /*방 번호를 전달하면 방의 이름을 반환하는 함수*/
 char* parse_room_name(int room_num);
+// 시나리오 출력 함수
+void scenario();
 #endif

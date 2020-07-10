@@ -12,8 +12,8 @@
 #include "ncur.h"
 #include "clue.h"
 
-#define ADDRESS ("192.168.30.31")
-//#define ADDRESS ("127.0.0.1")
+//#define ADDRESS ("192.168.30.31")
+#define ADDRESS ("127.0.0.1")
 int client_connect(void);
 int game_init(int sock, int *player_id, WINDOW ***windows,Player_packet *packet);    
 int game_update(int sock, WINDOW ***windows,Cursor *cursor);
@@ -31,8 +31,6 @@ int print_clue(Player_packet *packet,Cursor *cursor);
 
 
 int main(){
-
-	system("reset");
 
 	int sock = client_connect();
 	if (sock == -1) {
@@ -106,13 +104,12 @@ int game_play(int sock, int player_id, Player_packet *packet) {
 		int turn_player = (int)PLAYER_TURN_PLAYER(packet->info) >>4;
 		blink_player(windows[12],turn_player);
 
-		getchar();
 		char buf[32];
 		sprintf(buf,"game start");
 		str_add(cursor.log_str,(cursor.log_cnt)++,buf);
-//		history_log_print(cursor.log,cursor.log_str,cursor.log_cnt-1,sizeof(cursor.log_str)/sizeof(cursor.log_str[0]));
+		history_log_print(cursor.log,cursor.log_str,cursor.log_cnt-1,sizeof(cursor.log_str)/sizeof(cursor.log_str[0]));
+		move_command();
 
-		getchar();
 		if (packet_recv(sock,(char*)&sig, &type) == -1) {
 			return -1;
 		}
@@ -165,6 +162,7 @@ int roll_and_go(int sock, int player_id, WINDOW ***windows, Player_packet *packe
 	sprintf(dice_buf,"press 'y' to roll dice ");
 	str_add(cursor->log_str,(cursor->log_cnt)++,dice_buf);
 	history_log_print(cursor->log, cursor->log_str, cursor->log_cnt-1, sizeof(cursor->log_str)/sizeof(cursor->log_str[0]));
+	move_command();
 
 	dice_cursor(windows[12][5]);
 	dice_value = roll_dice();
@@ -175,6 +173,7 @@ int roll_and_go(int sock, int player_id, WINDOW ***windows, Player_packet *packe
 		sprintf(location_buf,"press arrow keys and 's' to select location ");
 		str_add(cursor->log_str,(cursor->log_cnt)++,location_buf);
 		history_log_print(cursor->log, cursor->log_str, cursor->log_cnt-1, sizeof(cursor->log_str)/sizeof(cursor->log_str[0]));
+		move_command();
 		choice_value = map_cursor(player,windows[12],player_id,dice_value,y,x);
 	}
 	else{
@@ -290,6 +289,8 @@ int game_init(int sock, int *player_id, WINDOW ***windows, Player_packet *packet
 
 	packet_recv(sock,(char*)packet, NULL);
 	
+	scenario();
+
 	*player_id = PLAYER_ID(packet->info);
 	
 	windows = display_init(packet->cards,*player_id);	 
@@ -320,9 +321,10 @@ int game_update(int sock, WINDOW ***windows, Cursor *cursor){
 
 	char buf[128];
 	int turn_player_dice = (int)PLAYER_SELECT_VALUE(packet.dice);
-	sprintf(buf,"player %d went %s room",turn_player,parse_room_name(room_num));
+	sprintf(buf,"player %d went %s room",turn_player+1,parse_room_name(room_num));
 	str_add(cursor->log_str,(cursor->log_cnt)++,buf);
 	history_log_print(cursor->log, cursor->log_str, cursor->log_cnt-1, sizeof(cursor->log_str)/sizeof(cursor->log_str[0]));
+	move_command();
 	
 	return 0;	
 }
@@ -378,10 +380,11 @@ int send_clue(int sock, Player_packet *packet,Cursor *cursor,WINDOW ***windows) 
 			char buf[128];
 			sprintf(buf,"Invalid clue.");
 			str_add(cursor->log_str,(cursor->log_cnt)++,buf);
-	history_log_print(cursor->log, cursor->log_str, cursor->log_cnt-1, sizeof(cursor->log_str)/sizeof(cursor->log_str[0]));
+			history_log_print(cursor->log, cursor->log_str, cursor->log_cnt-1, sizeof(cursor->log_str)/sizeof(cursor->log_str[0]));
+			move_command();
 		}
 
-		packet->clue = select_clue;
+		packet->clue = select_clue|(player_id<<5);
 	}
 
 	// 플레이어가 자기 카드 한장 또는 0을 서버에 전송 
@@ -420,6 +423,8 @@ int print_clue(Player_packet *packet,Cursor *cursor) {
 		sprintf(clue_buf,"no one has it"); 
 		str_add(cursor->log_str,(cursor->log_cnt)++,clue_buf);
 		history_log_print(cursor->log, cursor->log_str, cursor->log_cnt-1, sizeof(cursor->log_str)/sizeof(cursor->log_str[0]));
+		move_command();
+	
 		//printf("아무도 단서를 내지 않음!!\n");
 	}
 	// 턴플레이어가 아닌 다른 플레이어가 단서를 제출한 경우
@@ -428,17 +433,19 @@ int print_clue(Player_packet *packet,Cursor *cursor) {
 
 		}
 		else {
-			sprintf(clue_buf,"player%d: send to player%d",clue_player_id,turn_player_id); 
+			sprintf(clue_buf,"player%d: send to player%d",clue_player_id+1,turn_player_id+1); 
 			str_add(cursor->log_str,(cursor->log_cnt)++,clue_buf);
 			history_log_print(cursor->log, cursor->log_str, cursor->log_cnt-1, sizeof(cursor->log_str)/sizeof(cursor->log_str[0]));
+			move_command();
 			//printf("%d 플레이어가 %d 플레이어에게 단서를 제출함!!\n", clue_player_id, turn_player_id);
 		}
 	}
 	// 턴플레이어가 단서를 제출한 경우
 	else {
-		sprintf(clue_buf,"turn player(%d) send %s",clue_player_id,clue_str); 
+		sprintf(clue_buf,"turn player(%d) send %s",clue_player_id+1,clue_str); 
 		str_add(cursor->log_str,(cursor->log_cnt)++,clue_buf);
 		history_log_print(cursor->log, cursor->log_str, cursor->log_cnt-1, sizeof(cursor->log_str)/sizeof(cursor->log_str[0]));
+		move_command();
 		//printf("%d(턴플레이어)가 자신의 카드 %d을 제출!!\n", turn_player_id, clue);
 	}
 
@@ -450,6 +457,9 @@ int game_infer(int sock, int player_id, Cursor* cursor, WINDOW ***windows, pthre
 	int sig;
 	int type;
 
+	char *scene_str;
+	char *crime_str;
+	char *weapon_str;
 	// 턴플은 SIG_INFR, 나머지는 SIG_WAIT을 기다림
 	packet_recv(sock, (char*)&sig, NULL);
 
@@ -458,9 +468,10 @@ int game_infer(int sock, int player_id, Cursor* cursor, WINDOW ***windows, pthre
 	if (sig == SIG_INFR) {
 		
 		char infer_buf[128];
-		sprintf(infer_buf,"player %d start ",player_id);
+		sprintf(infer_buf,"player %d start ",player_id+1);
 		str_add(cursor->log_str,(cursor->log_cnt)++,infer_buf);
 		history_log_print(cursor->log, cursor->log_str, cursor->log_cnt-1, sizeof(cursor->log_str)/sizeof(cursor->log_str[0]));
+		move_command();
 
 		// 범인, 흉기(장소는 이미 그 자리로 이동을 했으므로 자동 카운트)를 
 		// 정하는 함수를 만든뒤 패킷에 담는다. 그런 다음에 packet_send를 한다.
@@ -492,7 +503,7 @@ int game_infer(int sock, int player_id, Cursor* cursor, WINDOW ***windows, pthre
 			break;
 		}
 
-		packet.infer = ((scene | 0x0008) << 10) | ((crime | 0x0010) << 5) | (weapon | 0x0018); 
+		packet.infer = ((scene |= 0x0008) << 10) | ((crime |= 0x0010) << 5) | (weapon |= 0x0018); 
 
 		// 자신의 추리 정보를 서버에 전송
 		type = PACKET;
@@ -512,14 +523,15 @@ int game_infer(int sock, int player_id, Cursor* cursor, WINDOW ***windows, pthre
 		int crime_card = PARSE_CARD(crime);
 		int weapon_cate = PARSE_CATE(weapon);
 		int weapon_card = PARSE_CARD(weapon);
-		char *scene_str = parse_card(scene_cate, scene_card);
-		char *crime_str = parse_card(crime_cate, crime_card);
-		char *weapon_str = parse_card(weapon_cate, weapon_card);
+		scene_str = parse_card(scene_cate, scene_card);
+		crime_str = parse_card(crime_cate, crime_card);
+		weapon_str = parse_card(weapon_cate, weapon_card);
 
 		char buf[128];
 		sprintf(buf,"your infer : %s killed him with %s in %s", crime_str, weapon_str, scene_str);
 		str_add(cursor->history_str,(cursor->history_cnt)++,buf);
 		history_log_print(cursor->history, cursor->history_str, cursor->history_cnt-1, sizeof(cursor->history_str)/sizeof(cursor->history_str[0]));
+		move_command();
 
 		// 서버로부터 전송되는 단서 신호를 대기
 		// SIG_TURN or SIG_DONE
@@ -542,9 +554,10 @@ int game_infer(int sock, int player_id, Cursor* cursor, WINDOW ***windows, pthre
 
 			char infer_buf[128];
 			char* clue_name = parse_card(clue_cate,clue_card);
-			sprintf(infer_buf,"player%d give a clue \" %s \" ",clue_player,clue_name); 
-			str_add(cursor->log_str,(cursor->log_cnt)++,infer_buf);
-			history_log_print(cursor->log, cursor->log_str, cursor->log_cnt-1, sizeof(cursor->log_str)/sizeof(cursor->log_str[0]));
+			sprintf(infer_buf,"player%d give a clue \" %s \" ",clue_player+1,clue_name); 
+			str_add(cursor->history_str,(cursor->history_cnt)++,infer_buf);
+			history_log_print(cursor->history, cursor->history_str, cursor->history_cnt-1, sizeof(cursor->history_str)/sizeof(cursor->history_str[0]));
+			move_command();
 
 			// UI 처리(단서 정보를 플레이어 화면에 출력)
 			print_clue(&packet,cursor);
@@ -558,6 +571,7 @@ int game_infer(int sock, int player_id, Cursor* cursor, WINDOW ***windows, pthre
 			str_add(cursor->log_str,(cursor->log_cnt)++,infer_buf);
 			history_log_print(cursor->log, cursor->log_str, cursor->log_cnt-1, sizeof(cursor->log_str)/sizeof(cursor->log_str[0]));
 
+			move_command();
 			send_clue(sock, &packet, cursor, windows);
 
 			// UI 처리(단서 정보를 모든 플레이어 로그 화면에 출력)
@@ -570,6 +584,7 @@ int game_infer(int sock, int player_id, Cursor* cursor, WINDOW ***windows, pthre
 			sprintf(infer_buf," you died .... "); 
 			str_add(cursor->log_str,(cursor->log_cnt)++,infer_buf);
 			history_log_print(cursor->log, cursor->log_str, cursor->log_cnt-1, sizeof(cursor->log_str)/sizeof(cursor->log_str[0]));
+			move_command();
 
 			// 죽은 플레이어의 카드가 공개됨. 안쓰지만 패킷은 받아두자!
 			packet_recv(sock, (char*)&packet, NULL);
@@ -581,6 +596,7 @@ int game_infer(int sock, int player_id, Cursor* cursor, WINDOW ***windows, pthre
 			sprintf(buf,"you win!");
 			str_add(cursor->log_str,(cursor->log_cnt)++,buf);
 			history_log_print(cursor->log, cursor->log_str, cursor->log_cnt-1, sizeof(cursor->log_str)/sizeof(cursor->log_str[0]));
+			move_command();
 			return SIG_WIN;
 		}
 
@@ -595,10 +611,31 @@ int game_infer(int sock, int player_id, Cursor* cursor, WINDOW ***windows, pthre
 		sprintf(buf1,"please wait for inference");
 		str_add(cursor->log_str,(cursor->log_cnt)++,buf1);
 		history_log_print(cursor->log, cursor->log_str, cursor->log_cnt-1, sizeof(cursor->log_str)/sizeof(cursor->log_str[0]));
+		move_command();
 		// 서버로부터 라우팅된 추리정보가 담긴 턴플레이어의 패킷을 받음
 		if (packet_recv(sock, (char*)&packet, NULL) == -1){
 			return -1;
 		}
+		int scene = PLAYER_INFER_SCENE(packet.infer)>>10;
+		int crime = PLAYER_INFER_CRIMINAL(packet.infer)>>5;
+		int weapon = PLAYER_INFER_WEAPON(packet.infer);
+
+		int scene_cate = PARSE_CATE(scene);
+		int scene_card = PARSE_CARD(scene);
+		int crime_cate = PARSE_CATE(crime);
+		int crime_card = PARSE_CARD(crime);
+		int weapon_cate = PARSE_CATE(weapon);
+		int weapon_card = PARSE_CARD(weapon);
+		scene_str = parse_card(scene_cate, scene_card);
+		crime_str = parse_card(crime_cate, crime_card);
+		weapon_str = parse_card(weapon_cate, weapon_card);
+
+		int turn_player1 = PLAYER_TURN_PLAYER(packet.info)>>4;
+		char buf3[128];
+		sprintf(buf3,"player %d : kill \"%s\" with \"%s\" in \"%s\" ",turn_player1+1,crime_str,weapon_str,scene_str);
+		str_add(cursor->history_str,(cursor->history_cnt)++,buf3);
+		history_log_print(cursor->history, cursor->history_str, cursor->history_cnt-1, sizeof(cursor->history_str)/sizeof(cursor->history_str[0]));
+		move_command();
 
 		// 서버로부터 전송되는 단서 신호를 대기
 		// SIG_TURN or SIG_DONE
@@ -619,6 +656,7 @@ int game_infer(int sock, int player_id, Cursor* cursor, WINDOW ***windows, pthre
 			sprintf(buf," hey! send your clue ");
 			str_add(cursor->log_str,(cursor->log_cnt)++,buf);
 			history_log_print(cursor->log, cursor->log_str, cursor->log_cnt-1, sizeof(cursor->log_str)/sizeof(cursor->log_str[0]));
+			move_command();
 
 			send_clue(sock, &packet,cursor, windows);
 			print_clue(&packet,cursor);
@@ -632,15 +670,17 @@ int game_infer(int sock, int player_id, Cursor* cursor, WINDOW ***windows, pthre
 			}
 			char clue_player = PLAYER_CLUE_PLAYER(packet.clue)>>5;
 			char turn_player = PLAYER_TURN_PLAYER(packet.info)>>4;
-			sprintf(buf,"player%d gave a clue to player%d",clue_player,turn_player);
+			sprintf(buf,"player%d gave a clue to player%d",clue_player+1,turn_player+1);
 			str_add(cursor->log_str,(cursor->log_cnt)++,buf);
 			history_log_print(cursor->log, cursor->log_str, cursor->log_cnt-1, sizeof(cursor->log_str)/sizeof(cursor->log_str[0]));
+			move_command();
 			print_clue(&packet, cursor);
 		}
 		else if (sig == SIG_DIE) {
 			sprintf(buf,"player %d die!\n", PLAYER_TURN_PLAYER(packet.info) >> 4);
 			str_add(cursor->log_str,(cursor->log_cnt)++,buf);
 			history_log_print(cursor->log, cursor->log_str, cursor->log_cnt-1, sizeof(cursor->log_str)/sizeof(cursor->log_str[0]));
+			move_command();
 
 			// 죽은 플레이어의 카드를 공개하기 위해 패킷을 받음
 			packet_recv(sock, (char*)&packet, NULL);
@@ -652,6 +692,7 @@ int game_infer(int sock, int player_id, Cursor* cursor, WINDOW ***windows, pthre
 			sprintf(buf,"player %d win!\n", PLAYER_TURN_PLAYER(packet.info) >> 4);
 			str_add(cursor->log_str,(cursor->log_cnt)++,buf);
 			history_log_print(cursor->log, cursor->log_str, cursor->log_cnt-1, sizeof(cursor->log_str)/sizeof(cursor->log_str[0]));
+			move_command();
 			return SIG_WIN;
 		}
 	}

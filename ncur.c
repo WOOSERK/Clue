@@ -309,7 +309,7 @@ int infer_cursor(int row){
 	char ** str;
 	int max_cnt;
 	if(row == 0){
-		char *str1[] = {"Kitchen","ClassRoom","RestRoom","Training","Horse","Office"};
+		char *str1[] = {"Kitchen","ClassRoom","RestRoom","Office","Horse","Traning"};
 		str = str1;
 		max_cnt = SUSPECT_NUM;
 	}
@@ -512,7 +512,7 @@ int map_cursor(WINDOW **player_room,WINDOW** playerList,int player,int range,int
 int move_limit(int choice_room,int range,int cury,int curx){
 	int map_value[2][3]={{0,1,2},{3,4,5}};
 	int map[6]={0,};
-	if(cury == 3&&curx == 2 ){return 1;}
+	if((cury == 3&&curx == 2)||(range >=4 ) ){return 1;}
 	for(int y = 0 ; y < 2; y ++){
 		for( int x = 0 ; x < 3 ; x ++){
 			if(range >=CAL_RANGE(cury,curx,y,x)){
@@ -536,7 +536,7 @@ int move_limit(int choice_room,int range,int cury,int curx){
 char* parse_card(int category,int card_num){
 	char *str;
 	if(category == 1){
-		char *str1[] = {"Kitchen","ClassRoom","RestRoom","Training","Horse","Office","RoomOfTurth"};
+		char *str1[] = {"Kitchen","ClassRoom","RestRoom","Office","Horse","Training","RoomOfTurth"};
 		str = str1[card_num];
 	}
 	else if(category == 2) {
@@ -671,14 +671,14 @@ WINDOW** make_history(){
 	int startx,starty,maxx,maxy;
 	getmaxhw(&maxy,&maxx,&starty,&startx);
 	startx /= 2;
-	startx += 15;
+	startx += 3;
 	starty += 1;
-	WINDOW *background = display_background(21,44,starty,startx-5,10);
+	WINDOW *background = display_background(21,60,starty,startx-2,10);
 	box(background,'|',' ');
 	wrefresh(background);
 	WINDOW **history = malloc(sizeof(WINDOW*)*8);
 	for(int i = 0 ; i < 21 ; i+=3){
-		history[i/3] = display_background(2,34,starty+i,startx,1);
+		history[i/3] = display_background(2,56,starty+i,startx,1);
 	}
 	return history;
 }
@@ -686,14 +686,14 @@ WINDOW** make_history(){
 WINDOW** make_log(){
 	int startx,starty,maxx,maxy;
 	getmaxhw(&maxy,&maxx,&starty,&startx);
-	startx += 10;
+	startx += 3;
 	starty += 1;
-	WINDOW *background = display_background(21,44,starty,startx-5,10);
+	WINDOW *background = display_background(21,60,starty,startx-2,10);
 	box(background,'|',' ');
 	wrefresh(background);
 	WINDOW **log = malloc(sizeof(WINDOW*)*8);
 	for(int i = 0 ; i < 21 ; i+=3){
-		log[i/3] = display_background(2,34,starty+i,startx,1);
+		log[i/3] = display_background(2,56,starty+i,startx,1);
 	}
 	return log;
 }
@@ -716,7 +716,7 @@ void history_log_cursor(WINDOW **window,char **str, int str_size){
 				cnt ++;
 				if(cnt >= HISTORY_MAX){
 					start_idx++;
-					start_idx = start_idx >= str_size ? str_size : start_idx;
+					start_idx = start_idx >= str_size ? str_size-1 : start_idx;
 					cnt = HISTORY_MAX-1;
 					history_log_print(window,str,start_idx,str_size);
 				}
@@ -727,7 +727,7 @@ void history_log_cursor(WINDOW **window,char **str, int str_size){
 				cnt--;
 				if(cnt < 0){
 					start_idx--;
-					start_idx = start_idx-6 <= 0 ? 6 : start_idx;
+					start_idx = start_idx <=0 ? 0 : start_idx;
 					cnt = 0;
 					history_log_print(window,str,start_idx,str_size);
 				}
@@ -817,6 +817,7 @@ void dice_num_print(WINDOW *window, int num){
 }
 
 WINDOW*** display_init(char* card, int player_id){
+	refresh();
 	char *suspect_str[] ={"KH_Kim","WS_Kim","JS_Kim","WC_Park","JH_Shin","KA_Jeon"};
 	char *room_str[] = {"Kitchen","ClassRoom","RestRoom","Training","Horse","Office"};
 	char *weapon_str[] = {"Knife","Umbrella","Punch","MacBook","Chair","Cable","ZUGA"};
@@ -917,5 +918,40 @@ char* parse_room_name(int room_num){
 			return "RoomOfTruth";
 	}
 	return NULL;
+}
+
+void scenario()
+{
+	system("clear");
+	char *script=
+		"   비가내리는밤이었다...\n\r"
+		"   그밤은지독히도어두운날이었다.\n\r"
+		"   새벽늦게까지불을밝히던'피자스쿨'간판마저도그날은어둠에몸을숨겼다.\n\r"
+		"   렉토피아의최연소강사'김석중'은렉토피아c언어의수많은학생들의 과제를검사하고있었다.\n\r"
+		"   그날따라과제가많았던지라전문가반학생들도대부분할일을다하고해맑게웃으며집으로간상태였다.\n\r"
+		"   오로지프로젝트2조만이프로젝트를완성하지못해서남아있었다.\n\r"
+		"   그리고그다음날제일먼저학원에온'박원창'은문을열고들어오자마자놀라넘어지고만다.\n\r"
+		"   최연소강사'김석중'이피를흘리며쓰러져있었다.\n\r"
+		"   확인을해보니이미숨을쉬지않는상태였고,'박원창'은바로경찰에신고하게된다.\n\r"
+		"   그러나경찰들은아무단서도발견하지못한채미제의사건으로남게된다.\n\r"
+		"   학원의사람들은이사건은꼭해결되어야한다며4명의 탐정을부르게 된다.\n\r"
+		"   프로젝트 2조에는 경안이의 쌍둥이 남동생 김경환과 김우석, 김주성, 박원창, 신제현, 전경안이 있었다.\n\r"
+		"   '김경환'은 사실 전경안을 빼고는 아무도 모르는 수수께끼의 인물이며, '김우석'은 몸은 왜소하나 그 혀가 아주 날카로워 과거 여포와의 합을 맞춰도 전혀 밀림이 없을 정도였다.\n\r"
+		"   '김주성'은 전문가반에 들어오기 전까지만 해도 근육이 없었으나 들어오고나서 자신의 몸에 한계를 느끼고 헬창의 길에 몸을 담았다.\n\r"
+		"   '박원창'은 성격이 온화하고 착하지만 그에게 싸움을 걸면 결코 봐주지않으며 그의 주먹에 맞으면 주마등조차도 스치지 못한다고 한다.\n\r"
+		"   '신제현'은 가끔 밥을 짓는 것을 깜빡하여 모두가 밥을 늦게 먹는 상황이 오기도 하지만 그의 엉뚱함에 모두 아무말도 하지 못하게 된다.\n\r"
+		"   '전경안'은 밀고 밀어도 반나절만에 나오는 날카로운 턱수염이 고슴도치를 거꾸로 든 모습을 연상케 했다.\n\r"
+		"   학원의 cctv는 누군가 조작을 한것인지 딱 그날의 기록이 잘려있었고, 1층 cctv 또한 점검중이었다.\n\r"
+		"   오직 몇가지만의 단서만 겨우 찾아냈을 뿐… 이 4명의 탐정중 과연 누가 범인을 잡을 수 있을까?...";
+	int length = strlen(script);
+
+	for(int i=0; i<length; i++)
+	{
+		printf("%c", script[i]);
+		fflush(stdout);
+		usleep(10000);
+	}
+	sleep(2);
+	system("clear");
 }
 
