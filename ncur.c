@@ -699,8 +699,7 @@ WINDOW** make_log(){
 }
 
 void history_log_cursor(WINDOW **window,char **str, int str_size){
-	int start_idx=str_size-1;;
-	str_size = sizeof(str)/sizeof(str[0]);
+	int start_idx=str_size < 0 ? 0 : str_size -1 ;
 	noecho();
 	cbreak();
 	keypad(stdscr,TRUE);
@@ -750,9 +749,9 @@ void history_log_print(WINDOW** display, char**str, int start_idx,int  str_size)
 	{
 		if(i < 0)
 			break;
-		werase(display[cnt--]);
-		wattrset(display[cnt--], A_BOLD);
-		mvwaddstr(display[cnt--], 1, 1, str[i]);
+		werase(display[cnt]);
+		wattrset(display[cnt], A_BOLD);
+		mvwaddstr(display[cnt], 1, 1, str[i]);
 		wrefresh(display[cnt--]);
 	}
 	return ;

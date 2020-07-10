@@ -11,7 +11,9 @@
 
 #include "ncur.h"
 #include "clue.h"
+
 #define ADDRESS ("192.168.30.31")
+//#define ADDRESS ("127.0.0.1")
 int client_connect(void);
 int game_init(int sock, int *player_id, WINDOW ***windows,Player_packet *packet);    
 int game_update(int sock, WINDOW ***windows,Cursor *cursor);
@@ -103,9 +105,14 @@ int game_play(int sock, int player_id, Player_packet *packet) {
 
 		int turn_player = (int)PLAYER_TURN_PLAYER(packet->info) >>4;
 		blink_player(windows[12],turn_player);
-		char buf[32];
-		str_add(cursor.log_str,(cursor.log_cnt)++,buf);
 
+		getchar();
+		char buf[32];
+		sprintf(buf,"game start");
+		str_add(cursor.log_str,(cursor.log_cnt)++,buf);
+//		history_log_print(cursor.log,cursor.log_str,cursor.log_cnt-1,sizeof(cursor.log_str)/sizeof(cursor.log_str[0]));
+
+		getchar();
 		if (packet_recv(sock,(char*)&sig, &type) == -1) {
 			return -1;
 		}
@@ -182,7 +189,7 @@ int roll_and_go(int sock, int player_id, WINDOW ***windows, Player_packet *packe
 	set_player_in_packet(packet, player_id, y, x);
 
 	int type = PACKET;
-	unsigned short us = packet->position;
+
 	// 서버에게 roll_and_go 정보를 전송
 	packet_send(sock, (char*)packet, &type);
 
