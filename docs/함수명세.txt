@@ -1,0 +1,118 @@
+sig_send, sig_recv만 아래의 시그널 사용
+2 : SIG_TURN
+3 : SIG_WAIT
+4 : SIG_INFR
+5 : SIG_DONE
+6 : SIG_NONE
+
+< server >
+server_open: 서버 오픈 함수
+server_accept: 서버에서 클라이언트를 받는 함수
+game_init: 게임 초기화 함수(모든 클라이언트에게 초기화 정보 전송까지)
+(game_set_answer => game_set_cards => game_set_players => game_set_turn => game_route => wait_ack(1이 와야함. 4명 모두에게 전송을 받으면 루프 시작))
+
+--------------------------- 루프 시작 -----------------------------
+
+단계 0으로 설정
+sig_send : 클라이언트 턴 결정(모든 클라이언트에게 전송. 턴인 클라이언트에게는 SIG_TURN, 나머지에게는 SIG_WAIT 전달)
+
+game_set_answer(3장의 정답카드를 생성하는 함수. 이후 정답은 서버에서만 가지고 있음)
+game_set_cards(4명의 플레이어에게 16장의 카드를 4장씩 분배)
+game_set_players(4명의 플레이어의 맵상의 위치를 설정)
+game_set_turn(플레이어의 차례를 결정)
+
+game_set_phase(단계 설정)
+ack_to_client: 클라이언트에게 패킷을 잘 받았다고 알리는 함수
+
+game_route: 전체 클라이언트에게 패킷을 전송
+(packet_send => wait_ack)
+
+msgq_route: 문자열 정보를 메시지큐를 사용하여 모든 클라이언트에게 전송
+
+game_recv_player_data: 클라이언트로부터 주사위값, 선택값, 위치값이 세팅된 패킷을 받아 라우팅
+(packet_recv => ack_to_client => set_dice(주사위값, 선택값 세팅), set_player => set_phase(단계 설정) => game_route => wait_ack)
+
+game_infer: 클라이언트에게 추리정보가 담긴 패킷을 받아서, 다른 3개의 패킷에 해당 추리정보를 세팅한 뒤 각 클라이언트에게 추리정보가 세팅된
+패킷을 순서대로 보내고, 단서 응답을 받아서 처리. 만약 다른 클라이언트들에게 단서가 없을 경우 해당 턴의 클라이언트에게 패킷(해당 턴의 클라이언트의 카드 중 하나가
+단서 비트에 세팅되어있음)을 받아 모든 클라이언트에게 전송
+(sig_send(클라이언트에게 추리 신호 전송 : SIG_INFR) => packet_recv(추리정보 패킷 받음) => ack_to_client => wait_ack
+
+---- for문 시작(클라이언트 수) ----
+sig_send(SIG_TURN 신호를 보냄)
+packet_recv => get_clue => 유무 비트 체크
+유 : packet_send(턴클라이언트에게 단서 전송). 나머지 클라이언트에게 SIG_WAIT를 주고(sig_send) 반복문 종료
+무 : continue; (다음 클라이언트로 넘어감)
+---- for문 끝 ----
+
+서 -> 턴클에게 주는 신호값
+신호값이 SIG_DONE이면 클라야 누가 냈다
+=> 단서를 턴클에게 전송
+
+신호값이 SIG_NONE이면 아무도 안냈다
+=> 턴클이 낼때까지 대기
+=> 턴클이 낸 단서를 모든 클라이언트에게 전송
+
+
+턴을 다음 클라이언트에게 넘김
+-------------------------------- 루프 끝 ---------------------------------------
+
+game_ROOM_OF_TRUTH: 클라이언트의 추리와 서버에 저장되어있던 정답을 비교하여 정답이면 게임 종료, 틀릴경우 해당 클라이언트를 게임에서
+제외(game_infer에서 호출)
+game_player_out: 클라이언트가 게임에서 제외된 상황을 처리
+
+
+
+
+< client >
+client_connect: 소켓 생성 후 접속
+game_init: 서버로부터 초기화 패킷을 받아 게임을 초기화
+(packet_recv => ack_to_server => 초기화 작업 진행(ui출력)
+1일 경우 : roll_and_go진행
+
+출력부분은 스레드. 생각은 나중에
+------------------------------- 루프 ------------------------------------------
+
+턴을 받는 함수 : SIG_TURN이 오면 자기턴 시작, SIG_WAIT이 오면 해당 턴인 플레이어를 대기(시그널에 따라 분기)
+
+roll_and_go: 주사위값, 선택값, 위치값을 패킷에 설정한 뒤 서버에 전송
+(roll_dice, 선택값 생성, 위치값 생성 => set_dice(주사위값 + 선택값), set_player(위치값 생성) => packet_send => wait_ack)
+roll_dice: 주사위값을 생성
+
+game_update: 서버로부터 패킷을 받아 맵, 히스토리, 게임진행을 업데이트
+(ack_to_server => UI업데이트)
+
+game_infer: 추리정보 서버로 보내기
+sig_recv(SIG_INFR 또는 SIG_WAIT이 날아옴)
+SIG_INFR : 추리진행(set_infer(카드3장의 정보를 패킷에 세팅) => packet_send => wait_ack)
+=> SIG_DONE 또는 SIG_NONE
+     SIG_DONE: 누가 냈어. 단서를 기다려(packet_recv)
+     SIG_NONE: 아무도 안냈어. 내거 하나 보내(packet_send)
+
+SIG_WAIT(턴이 아닌 클라이언트들) : sig_recv(SIG_DONE또는 SIG_NONE)
+     SIG_DONE: 다른 녀석이 냈어. 
+     SIG_NONE: 내가 가지고 있는 단서를 하나 골라서 주자!
+
+ack_to_server: 서버에게 패킷을 잘 받았다고 알리는 함수
+msgq_recv(스레드): 서버에게 문자열을 받음
+msgq_print(스레드): 서버에게 받은 문자열을 히스토리, 진행사항란에 출력
+
+
+< 패킷 관련 함수 >
+packet_send: 패킷 전송 함수(하나의 패킷만 전송)
+packet_recv: 패킷 수신 함수(하나의 패킷만 수신)
+
+get_player_info
+get_player_position
+get_player_cards
+get_dice
+get_infer
+get_clue
+
+set_player
+set_turn
+set_phase
+set_dice
+set_infer
+set_clue
+
+wait_ack
